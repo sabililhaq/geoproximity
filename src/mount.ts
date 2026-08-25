@@ -6,14 +6,16 @@ import { proximityMarkup } from './template';
 
 export type MountProximityOptions = {
 	basePath?: string;
+	/** Load the bundled sample when the map is empty. */
+	sample?: boolean;
 };
 
-export function mountProximity(root: HTMLElement, _options: MountProximityOptions = {}): () => void {
+export function mountProximity(root: HTMLElement, options: MountProximityOptions = {}): () => void {
 	if (!root.querySelector('[data-proximity]')) {
 		root.innerHTML = proximityMarkup;
 	}
 
-	const stop = startProximity(root);
+	const stop = startProximity(root, options);
 	window.setTimeout(() => invalidateProximity(root), 60);
 
 	return () => {

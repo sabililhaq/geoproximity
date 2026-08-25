@@ -146,11 +146,13 @@ import { mountProximity } from 'geoproximity';
 const host = document.querySelector('[data-proximity-host]');
 
 if (host instanceof HTMLElement) {
-  mountProximity(host, { basePath: '/map' });
+  mountProximity(host, { basePath: '/map', sample: true });
 }
 ```
 
 The host element needs a defined height. Geoproximity fills the available space and inherits the host's font and color tokens.
+
+Pass `sample: true` to load the bundled Bandung example when the map is empty, so a first visit is a comparison instead of a blank form.
 
 ## Development
 

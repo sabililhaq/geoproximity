@@ -159,7 +159,14 @@ function bindSearch(
   });
 }
 
-export function startProximity(root: HTMLElement): () => void {
+export type StartProximityOptions = {
+  sample?: boolean;
+};
+
+export function startProximity(
+  root: HTMLElement,
+  options: StartProximityOptions = {},
+): () => void {
   const host = qs(root, "[data-proximity]");
   const mapEl = qs(root, "[data-px-map]");
   const destForm = qs<HTMLFormElement>(root, "[data-dest-form]");
@@ -447,13 +454,14 @@ export function startProximity(root: HTMLElement): () => void {
 
   fitBtn.addEventListener("click", () => fit(true), { signal: session.signal });
 
-  function loadSample() {
+  function loadSample(announce = true) {
     const result = parseProximityJson(JSON.stringify(sampleProximity));
     if (!result.ok) {
       showStatus(result.error);
       return;
     }
     applyFile(result.data);
+    if (!announce) return;
     const count =
       result.data.locations.length + (result.data.destination ? 1 : 0);
     showStatus(`Loaded sample · ${count} nodes.`);
@@ -464,7 +472,7 @@ export function startProximity(root: HTMLElement): () => void {
   });
 
   for (const btn of sampleButtons) {
-    btn.addEventListener("click", loadSample, { signal: session.signal });
+    btn.addEventListener("click", () => loadSample(true), { signal: session.signal });
   }
 
   exportBtn.addEventListener(
@@ -549,7 +557,11 @@ export function startProximity(root: HTMLElement): () => void {
     });
   });
 
-  render();
+  if (options.sample && !persisted.destination && persisted.locations.length === 0) {
+    loadSample(false);
+  } else {
+    render();
+  }
   window.setTimeout(() => map.invalidateSize(), 0);
 
   return () => {
