@@ -1,0 +1,29 @@
+{
+  "destination": {
+    "name": "Jalan Braga",
+    "lat": -6.9205914,
+    "lon": 107.6099494
+  },
+  "locations": [
+    {
+      "name": "Universitas Komputer Indonesia",
+      "lat": -6.8871005,
+      "lon": 107.6155151
+    },
+    {
+      "name": "Jackal Holidays",
+      "lat": -6.8961563,
+      "lon": 107.5898873
+    },
+    {
+      "name": "Warunk Upnormal",
+      "lat": -6.9022555,
+      "lon": 107.6044599
+    },
+    {
+      "name": "Bandung Basin Metropolitan Area BRT Corridor",
+      "lat": -6.937290089349921,
+      "lon": 107.60456085205078
+    }
+  ]
+}
