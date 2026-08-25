@@ -1,30 +1,169 @@
 # Geoproximity
 
-Rank travel locations by distance to a destination.
+**Visualize and rank multiple locations by proximity to a destination.**
 
-Search or click a destination, add places, and sort them by great-circle distance. Distances are straight-line for now.
+[Live demo](https://sabililhaq.com/map)
 
-## Mount it
+Geoproximity helps you compare locations geographically. Choose a destination, add multiple candidate locations, and see them visualized and ranked by distance.
 
-Give the host a height. Geoproximity fills that box and inherits the host font and color tokens (`--font-atkinson`, `--bg`, `--black`, `--gray`, `--gray-light`, `--gray-dark`, `--surface`, `--accent`, `--row-hover`). Invert the RGB triples for dark mode.
+It is designed for problems where **comparing many locations at once** is more useful than checking distances one by one.
 
-```ts
+<img width="865" height="573" alt="image" src="https://github.com/user-attachments/assets/a9be2685-c01a-4b16-a61f-573b36d6c7bb" />
+
+
+## Use cases
+
+### Choosing a travel hub
+
+You're going to Bandung and different travel agencies have different drop-off hubs.
+
+Instead of checking each hub individually in Google Maps, add them all to Geoproximity and immediately see which ones are closest to your destination.
+
+### Finding a meeting point
+
+Several people are coming from different locations and you have several candidate meeting points.
+
+Plot the participants and candidates together to understand which options are geographically convenient.
+
+### Choosing a restaurant
+
+You have several restaurant options and multiple people coming from different places.
+
+Visualize them together to compare the geographic trade-offs instead of evaluating each distance separately.
+
+### More generally
+
+Any problem that looks like:
+
+> **"I have several locations. Which one makes the most sense geographically?"**
+
+can potentially be modeled with Geoproximity.
+
+## Why not just use Google Maps?
+
+Google Maps is already great at answering:
+
+> "How far is A from B?"
+
+The problem becomes different when you have many candidates:
+
+```text
+A → B
+A → C
+A → D
+A → E
+...
+```
+
+You have to repeat the same workflow and mentally compare the results.
+
+Geoproximity turns those individual checks into one visualization:
+
+```text
+              B
+              │
+              │
+       C ───── A ───── D
+              │
+              │
+              E
+
+        ↓
+
+     ranked by distance
+```
+
+The goal isn't to replace Google Maps. It's to make **multi-location comparison** easier.
+
+## How it works
+
+1. **Choose a destination** — search, click on the map, or use your current location.
+2. **Add locations** — enter the places you want to compare.
+3. **Visualize** — locations are plotted and connected to the destination.
+4. **Rank** — candidates are sorted by proximity.
+
+The result gives you both the **ranking** and the **geographic context** behind it.
+
+## Runs entirely in the browser
+
+Geoproximity performs its core geospatial calculations **client-side**.
+
+There is no application server required to calculate or rank the locations. The browser handles the coordinates, visualization, and distance calculations.
+
+This makes the core application:
+
+* **Serverless** — no backend required
+* **Client-side** — calculations happen locally
+* **Lightweight** — the problem can be solved directly from coordinates
+* **Privacy-friendly** — location data doesn't need to pass through an application server
+
+The map and geocoding functionality may still depend on external services.
+
+## Distance
+
+The current ranking uses **great-circle distance** between coordinates.
+
+This represents geographic, straight-line distance — **not driving or walking distance**.
+
+Future versions may support network-based distance, where locations are connected through a road or other geographic network.
+
+## Limitations
+
+The built-in location data is not yet comprehensive.
+
+For better accuracy, you can copy a location's coordinates from Google Maps and enter them directly:
+
+```text
+latitude, longitude
+```
+
+The application also relies on external services for some functionality, so availability may occasionally be affected by external rate limits, particularly during high traffic.
+
+The distance ranking itself only considers distance. It does not account for traffic, road conditions, population density, or other real-world factors.
+
+## Roadmap
+
+### Proximity
+
+* [ ] Network-based distance
+* [ ] Dijkstra-based routing
+* [ ] Animated connections
+* [ ] Optional map-less view showing only nodes and connections
+* [ ] Improve location coverage and accuracy
+* [ ] Better handling and messaging around external service limits
+
+### Sharing
+
+* [ ] Share comparisons through URL parameters without import/export
+
+## Use as a library
+
+Geoproximity can be embedded into another web application:
+
+```js
 import { mountProximity } from 'geoproximity';
 
 const host = document.querySelector('[data-proximity-host]');
+
 if (host instanceof HTMLElement) {
   mountProximity(host, { basePath: '/map' });
 }
 ```
 
-```json
-"geoproximity": "github:sabililhaq/geoproximity#v0.1.0"
-```
+The host element needs a defined height. Geoproximity fills the available space and inherits the host's font and color tokens.
 
-## Develop
+## Development
 
-```sh
+```bash
 npm install
 npm test
 npm run dev
 ```
+
+---
+
+Geoproximity started from a simple repetitive workflow:
+
+**copy location → check Google Maps → compare → repeat.**
+
+This project turns that workflow into a single geographic comparison.
