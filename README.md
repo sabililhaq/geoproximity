@@ -134,7 +134,7 @@ The distance ranking itself only considers distance. It does not account for tra
 
 ### Sharing
 
-* [ ] Share comparisons through URL parameters without import/export
+* [x] Share comparisons through URL parameters without import/export
 
 ## Use as a library
 
@@ -153,6 +153,8 @@ if (host instanceof HTMLElement) {
 The host element needs a defined height. Geoproximity fills the available space and inherits the host's font and color tokens.
 
 Pass `sample: true` to load the bundled Bandung example when the map is empty, so a first visit is a comparison instead of a blank form.
+
+Pass `share: true` to enable sharing comparisons through a URL hash. The standalone demo enables this option; library consumers opt in explicitly.
 
 ## Development
 

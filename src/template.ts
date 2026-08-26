@@ -8,6 +8,7 @@ export const proximityMarkup = `
 				<button type="button" data-sample>Sample</button>
 				<button type="button" data-import>Import</button>
 				<button type="button" data-export>Export</button>
+				<button type="button" data-share hidden>Share</button>
 				<input data-import-file type="file" accept="application/json,.json" hidden />
 			</div>
 			<p data-io-status class="px-io-status" role="status" aria-live="polite" hidden></p>

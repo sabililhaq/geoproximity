@@ -1,6 +1,6 @@
-import { mountProximity } from './index';
+import { mountProximity } from "./index";
 
-const app = document.getElementById('app');
-if (!app) throw new Error('Missing #app');
+const app = document.getElementById("app");
+if (!app) throw new Error("Missing #app");
 
-mountProximity(app, { basePath: '/', sample: true });
+mountProximity(app, { basePath: "/", sample: true, share: true });

@@ -6,6 +6,7 @@ import {
   serializeProximity,
   type ProximityFile,
 } from "./io";
+import { encodeShareHash, readShareHash } from "./share";
 import sampleProximity from "./sample-proximity.json";
 import type { Place, ProximityState } from "./types";
 
@@ -161,6 +162,7 @@ function bindSearch(
 
 export type StartProximityOptions = {
   sample?: boolean;
+  share?: boolean;
 };
 
 export function startProximity(
@@ -184,6 +186,7 @@ export function startProximity(
   const clearBtn = qs<HTMLButtonElement>(root, "[data-clear]");
   const importBtn = qs<HTMLButtonElement>(root, "[data-import]");
   const exportBtn = qs<HTMLButtonElement>(root, "[data-export]");
+  const shareBtn = qs<HTMLButtonElement>(root, "[data-share]");
   const sampleButtons = Array.from(
     root.querySelectorAll<HTMLButtonElement>("[data-sample]"),
   );
@@ -195,6 +198,7 @@ export function startProximity(
     root.querySelectorAll<HTMLButtonElement>("[data-unit]"),
   );
   let statusTimer = 0;
+  shareBtn.hidden = !options.share;
 
   const session = new AbortController();
   const map = L.map(mapEl, { worldCopyJump: true }).setView([20, 0], 2);
@@ -366,6 +370,10 @@ export function startProximity(
     empty.hidden = hasNodes;
     fitBtn.disabled = !hasNodes;
     clearBtn.disabled = !hasNodes;
+
+    if (options.share) {
+      window.history.replaceState(null, "", `#${encodeShareHash(persisted)}`);
+    }
   }
 
   function showStatus(message: string) {
@@ -472,7 +480,9 @@ export function startProximity(
   });
 
   for (const btn of sampleButtons) {
-    btn.addEventListener("click", () => loadSample(true), { signal: session.signal });
+    btn.addEventListener("click", () => loadSample(true), {
+      signal: session.signal,
+    });
   }
 
   exportBtn.addEventListener(
@@ -503,6 +513,21 @@ export function startProximity(
     },
     { signal: session.signal },
   );
+
+  if (options.share) {
+    shareBtn.addEventListener(
+      "click",
+      async () => {
+        try {
+          await navigator.clipboard.writeText(window.location.href);
+          showStatus("Link copied to clipboard.");
+        } catch {
+          showStatus("Could not copy link.");
+        }
+      },
+      { signal: session.signal },
+    );
+  }
 
   importFile.addEventListener(
     "change",
@@ -557,7 +582,17 @@ export function startProximity(
     });
   });
 
-  if (options.sample && !persisted.destination && persisted.locations.length === 0) {
+  const shared = options.share ? readShareHash(window.location.hash) : null;
+  if (shared) {
+    persisted.unit = shared.unit;
+    applyFile(shared);
+    const count = shared.locations.length + (shared.destination ? 1 : 0);
+    showStatus(`Loaded from shared link · ${count} nodes.`);
+  } else if (
+    options.sample &&
+    !persisted.destination &&
+    persisted.locations.length === 0
+  ) {
     loadSample(false);
   } else {
     render();
