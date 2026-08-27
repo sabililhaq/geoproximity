@@ -26,6 +26,15 @@ describe("mount sample option", () => {
     expect(app).toContain("options.share");
   });
 
+  it("threads cartoApiKey through mount into startProximity", () => {
+    const mount = readFileSync(mountPath, "utf-8");
+    const app = readFileSync(appPath, "utf-8");
+
+    expect(mount).toContain("cartoApiKey?: string");
+    expect(mount).toContain("startProximity(root, options)");
+    expect(app).toContain("options.cartoApiKey");
+  });
+
   it("loads the sample on the standalone demo", () => {
     const demo = readFileSync(demoPath, "utf-8");
     expect(demo).toContain("sample: true");

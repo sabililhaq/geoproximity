@@ -1,6 +1,6 @@
 {
   "name": "geoproximity",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Rank travel locations by distance to a destination.",
   "type": "module",
   "sideEffects": [

@@ -10,6 +10,8 @@ export type MountProximityOptions = {
   sample?: boolean;
   /** Enable sharing comparisons through the URL hash. */
   share?: boolean;
+  /** CARTO raster basemap key. Falls back to VITE_CARTO_API_KEY. */
+  cartoApiKey?: string;
 };
 
 export function mountProximity(

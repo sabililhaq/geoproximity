@@ -8,6 +8,7 @@ import {
 } from "./io";
 import { encodeShareHash, readShareHash } from "./share";
 import sampleProximity from "./sample-proximity.json";
+import { cartoTileUrl, resolveCartoApiKey } from "./basemap";
 import type { Place, ProximityState } from "./types";
 
 const persisted: ProximityState = {
@@ -31,11 +32,8 @@ function qs<T extends HTMLElement>(root: ParentNode, sel: string): T {
   return el as T;
 }
 
-function tileUrl(theme: string | undefined): string {
-  return theme === "dark"
-    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-}
+const CARTO_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
 function accentColor(): string {
   return (
@@ -163,6 +161,8 @@ function bindSearch(
 export type StartProximityOptions = {
   sample?: boolean;
   share?: boolean;
+  /** CARTO raster basemap key. Falls back to VITE_CARTO_API_KEY. */
+  cartoApiKey?: string;
 };
 
 export function startProximity(
@@ -202,19 +202,20 @@ export function startProximity(
 
   const session = new AbortController();
   const map = L.map(mapEl, { worldCopyJump: true }).setView([20, 0], 2);
-  let tiles = L.tileLayer(tileUrl(document.documentElement.dataset.theme), {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap &copy; CARTO",
-  }).addTo(map);
+  const cartoApiKey = resolveCartoApiKey(options.cartoApiKey);
+  const addTiles = () =>
+    L.tileLayer(cartoTileUrl(document.documentElement.dataset.theme, cartoApiKey), {
+      maxZoom: 19,
+      subdomains: "abcd",
+      attribution: CARTO_ATTRIBUTION,
+    }).addTo(map);
+  let tiles = addTiles();
   const overlay = L.layerGroup().addTo(map);
   maps.set(root, map);
 
   const themeObs = new MutationObserver(() => {
     tiles.remove();
-    tiles = L.tileLayer(tileUrl(document.documentElement.dataset.theme), {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap &copy; CARTO",
-    }).addTo(map);
+    tiles = addTiles();
     overlay.addTo(map);
   });
   themeObs.observe(document.documentElement, {

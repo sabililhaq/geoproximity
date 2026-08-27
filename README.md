@@ -164,6 +164,18 @@ npm test
 npm run dev
 ```
 
+CARTO raster tiles need an API key or the map shows an “API key required” watermark. Copy `.env.example` to `.env` and set `VITE_CARTO_API_KEY`. That file is gitignored. Restart the dev server after changing it.
+
+When embedding the library in another Vite app, set the same variable there, or pass it explicitly:
+
+```js
+mountProximity(host, {
+  cartoApiKey: import.meta.env.VITE_CARTO_API_KEY,
+});
+```
+
+Vite inlines `VITE_*` values into the client bundle, and the browser sends the key on every tile request. That is how CARTO authenticates raster tiles — keep the key out of git, but do not treat it as a server secret.
+
 ---
 
 Geoproximity started from a simple repetitive workflow:
