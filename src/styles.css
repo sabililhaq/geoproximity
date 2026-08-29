@@ -5,8 +5,17 @@
 	--px-title: rgb(var(--black));
 	--px-fill: rgb(var(--surface));
 	--px-wash: rgb(var(--bg));
-	box-sizing: border-box;
 
+	box-sizing: border-box;
+	height: 100%;
+	width: 100%;
+	min-height: 0;
+
+	container-type: inline-size;
+	container-name: px;
+}
+
+.px-layout {
 	display: grid;
 	grid-template-areas: 'map' 'aside';
 	grid-template-rows: minmax(0, 1fr) minmax(320px, 52%);
@@ -518,8 +527,8 @@
 	border-color: var(--px-border);
 }
 
-@media (max-width: 767px) {
-	[data-proximity] {
+@container px (max-width: 767px) {
+	.px-layout {
 		grid-template-rows: minmax(0, 1fr) minmax(340px, 58%);
 	}
 
@@ -548,8 +557,8 @@
 	}
 }
 
-@media (min-width: 768px) {
-	[data-proximity] {
+@container px (min-width: 768px) {
+	.px-layout {
 		grid-template-areas: 'aside map';
 		grid-template-columns: 320px minmax(0, 1fr);
 		grid-template-rows: minmax(0, 1fr);
