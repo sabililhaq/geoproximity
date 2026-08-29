@@ -62,6 +62,10 @@ export const proximityMarkup = `
 			</div>
 		</aside>
 
+		<div data-px-resizer class="px-resizer" aria-hidden="true">
+			<div class="px-resizer-handle"></div>
+		</div>
+
 		<div class="px-map-wrap">
 			<div data-px-map class="px-map" role="application" aria-label="Proximity map"></div>
 			<p data-px-hint class="px-hint" hidden>Click the map to set a destination</p>
