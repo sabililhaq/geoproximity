@@ -3,7 +3,6 @@ import { formatDistance, samePlace, withDistance } from "./geo";
 import { reverseGeocode, searchLocation, type GeocodeHit } from "./geocoder";
 import {
   parseProximityJson,
-  serializeProximity,
   type ProximityFile,
 } from "./io";
 import { encodeShareHash, readShareHash } from "./share";
@@ -186,13 +185,10 @@ export function startProximity(
   const clearBtn = qs<HTMLButtonElement>(root, "[data-clear]");
   const resizer = root.querySelector("[data-px-resizer]") as HTMLElement | null;
   const layout = root.querySelector(".px-layout") as HTMLElement | null;
-  const importBtn = qs<HTMLButtonElement>(root, "[data-import]");
-  const exportBtn = qs<HTMLButtonElement>(root, "[data-export]");
   const shareBtn = qs<HTMLButtonElement>(root, "[data-share]");
   const sampleButtons = Array.from(
     root.querySelectorAll<HTMLButtonElement>("[data-sample]"),
   );
-  const importFile = qs<HTMLInputElement>(root, "[data-import-file]");
   const ioStatus = qs(root, "[data-io-status]");
   const hint = qs(root, "[data-px-hint]");
   const empty = qs(root, "[data-px-empty]");
@@ -517,44 +513,11 @@ export function startProximity(
     showStatus(`Loaded sample · ${count} nodes.`);
   }
 
-  importBtn.addEventListener("click", () => importFile.click(), {
-    signal: session.signal,
-  });
-
   for (const btn of sampleButtons) {
     btn.addEventListener("click", () => loadSample(true), {
       signal: session.signal,
     });
   }
-
-  exportBtn.addEventListener(
-    "click",
-    () => {
-      const text = serializeProximity({
-        destination: persisted.destination
-          ? {
-              name: persisted.destination.name,
-              lat: persisted.destination.lat,
-              lon: persisted.destination.lon,
-            }
-          : null,
-        locations: persisted.locations.map((place) => ({
-          name: place.name,
-          lat: place.lat,
-          lon: place.lon,
-        })),
-      });
-      const blob = new Blob([text], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "proximity.json";
-      link.click();
-      URL.revokeObjectURL(url);
-      showStatus("Exported JSON nodes.");
-    },
-    { signal: session.signal },
-  );
 
   if (options.share) {
     shareBtn.addEventListener(
@@ -570,27 +533,6 @@ export function startProximity(
       { signal: session.signal },
     );
   }
-
-  importFile.addEventListener(
-    "change",
-    () => {
-      const file = importFile.files?.[0];
-      importFile.value = "";
-      if (!file) return;
-      void file.text().then((text) => {
-        const result = parseProximityJson(text);
-        if (!result.ok) {
-          showStatus(result.error);
-          return;
-        }
-        applyFile(result.data);
-        const count =
-          result.data.locations.length + (result.data.destination ? 1 : 0);
-        showStatus(`Imported ${count} node${count === 1 ? "" : "s"}.`);
-      });
-    },
-    { signal: session.signal },
-  );
 
   clearBtn.addEventListener(
     "click",

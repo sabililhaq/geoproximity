@@ -55,6 +55,7 @@
 .px-map-wrap {
 	grid-area: map;
 	position: relative;
+	height: 100%;
 	min-height: 0;
 	min-width: 0;
 }
@@ -77,8 +78,21 @@
 	font-size: 0.82rem;
 }
 
-.px-sidebar-head .px-io-row {
-	margin-top: 0.55rem;
+.px-io-row button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.35rem;
+	flex: 1 1 0%;
+	min-width: 2.75rem;
+	min-height: 2.75rem;
+	padding: 0.55rem 0.75rem;
+}
+
+.px-io-row svg {
+	width: 1.25rem;
+	height: 1.25rem;
+	flex: 0 0 auto;
 }
 
 .px-sidebar-head .px-io-status {
@@ -342,6 +356,12 @@
 	align-items: center;
 }
 
+.px-io-row {
+	width: 100%;
+	display: grid;
+	grid-template-columns: repeat(4, minmax(2.75rem, 1fr));
+}
+
 .px-seg {
 	display: inline-flex;
 	padding: 2px;
@@ -556,6 +576,10 @@
 		grid-template-rows: minmax(0, 1fr) 6px minmax(340px, var(--px-sidebar-h));
 	}
 
+	.px-map-wrap {
+		height: 100%;
+	}
+
 	.px-resizer {
 		cursor: row-resize;
 	}
@@ -572,10 +596,6 @@
 
 	.px-sidebar-head p {
 		display: none;
-	}
-
-	.px-sidebar-head .px-io-row {
-		margin-top: 0.4rem;
 	}
 
 	.px-sidebar-body {
