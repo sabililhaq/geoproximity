@@ -245,7 +245,7 @@ export function startProximity(
 
     resizer.addEventListener('pointermove', (e) => {
       if (!isDragging) return;
-      const delta = isVertical ? (startPos - e.clientY) : (startPos - e.clientX);
+      const delta = isVertical ? (startPos - e.clientY) : (e.clientX - startPos);
       const newSize = Math.max(200, startSize + delta);
       if (isVertical) {
         layout.style.setProperty('--px-sidebar-h', `${newSize}px`);
