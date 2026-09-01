@@ -1,5 +1,7 @@
 export type ProximityUnit = 'km' | 'mi';
 
+export type DistanceMode = 'straight' | 'driving' | 'walking';
+
 export type Place = {
 	id: string;
 	name: string;
@@ -11,4 +13,5 @@ export type ProximityState = {
 	destination: Place | null;
 	locations: Place[];
 	unit: ProximityUnit;
+	distanceMode: DistanceMode;
 };

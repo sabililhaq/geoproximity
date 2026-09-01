@@ -38,10 +38,8 @@ export const proximityMarkup = `
 				<div class="px-route-row">
 					<div class="px-seg" role="group" aria-label="Distance method">
 						<button type="button" data-route-mode="straight" aria-pressed="true">Straight line</button>
-						<span class="px-tip" tabindex="0">
-							<button type="button" data-route-mode="street" aria-pressed="false" aria-disabled="true" disabled>Street</button>
-							<span class="px-tip-bubble" role="tooltip">Street distance follows roads. Not available yet — distances are straight-line (great-circle) for now.</span>
-						</span>
+						<button type="button" data-route-mode="driving" aria-pressed="false">Driving</button>
+						<button type="button" data-route-mode="walking" aria-pressed="false">Walking</button>
 					</div>
 					<div class="px-seg" role="group" aria-label="Distance unit">
 						<button type="button" data-unit="km">km</button>

@@ -10,14 +10,13 @@ describe('proximity markup', () => {
 			'data-dest-tools',
 			'data-fit',
 			'data-clear',
-			'data-import',
-			'data-export',
 			'data-sample',
 			'data-loc-empty',
 			'data-unit="km"',
 			'data-unit="mi"',
 			'data-route-mode="straight"',
-			'data-route-mode="street"',
+			'data-route-mode="driving"',
+			'data-route-mode="walking"',
 			'data-px-map',
 		]) {
 			expect(proximityMarkup).toContain(hook);
@@ -30,8 +29,9 @@ describe('proximity markup', () => {
 		expect(proximityMarkup).not.toContain('data-cartis');
 	});
 
-	it('keeps street distance disabled with hover info', () => {
-		expect(proximityMarkup).toMatch(/data-route-mode="street"[^>]*disabled/);
-		expect(proximityMarkup).toContain('Street distance follows roads');
+	it('enables network distance buttons', () => {
+		expect(proximityMarkup).toContain('data-route-mode="driving"');
+		expect(proximityMarkup).toContain('data-route-mode="walking"');
+		expect(proximityMarkup).not.toMatch(/data-route-mode="street"/);
 	});
 });

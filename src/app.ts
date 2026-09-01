@@ -1,5 +1,5 @@
 import L from "leaflet";
-import { formatDistance, samePlace, withDistance } from "./geo";
+import { formatDistance, samePlace, withDistance, withNetworkDistance } from "./geo";
 import { reverseGeocode, searchLocation, type GeocodeHit } from "./geocoder";
 import {
   parseProximityJson,
@@ -8,12 +8,13 @@ import {
 import { encodeShareHash, readShareHash } from "./share";
 import sampleProximity from "./sample-proximity.json";
 import { cartoTileUrl, resolveCartoApiKey } from "./basemap";
-import type { Place, ProximityState } from "./types";
+import type { Place, ProximityState, DistanceMode } from "./types";
 
 const persisted: ProximityState = {
   destination: null,
   locations: [],
   unit: "km",
+  distanceMode: "straight",
 };
 
 const maps = new WeakMap<HTMLElement, L.Map>();
@@ -195,7 +196,13 @@ export function startProximity(
   const unitButtons = Array.from(
     root.querySelectorAll<HTMLButtonElement>("[data-unit]"),
   );
+  const routeModeButtons = Array.from(
+    root.querySelectorAll<HTMLButtonElement>("[data-route-mode]"),
+  );
   let statusTimer = 0;
+  let isLoadingDistances = false;
+  let distanceCache = new Map<string, number>();
+  let selectedLocationId: string | null = null;
   shareBtn.hidden = !options.share;
 
   const session = new AbortController();
@@ -270,6 +277,22 @@ export function startProximity(
     return withDistance(persisted.locations, persisted.destination);
   }
 
+  async function rankedLocationsAsync(signal: AbortSignal) {
+    if (!persisted.destination) {
+      return persisted.locations.map((place) => ({ ...place, km: Number.NaN }));
+    }
+    if (persisted.distanceMode === "straight") {
+      return rankedLocations();
+    }
+    const mode = persisted.distanceMode === "driving" ? "driving" : "walking";
+    return await withNetworkDistance(
+      persisted.locations,
+      persisted.destination,
+      mode,
+      signal,
+    );
+  }
+
   function fit(force = true) {
     const points: L.LatLngExpression[] = [];
     if (persisted.destination)
@@ -288,14 +311,47 @@ export function startProximity(
   }
 
   function render() {
+    if (persisted.distanceMode !== "straight") {
+      void renderAsync(session.signal);
+    } else {
+      const dest = persisted.destination;
+      const ranked = rankedLocations();
+      doRender(ranked);
+    }
+  }
+
+  async function renderAsync(signal: AbortSignal) {
+    isLoadingDistances = true;
+    for (const btn of routeModeButtons) {
+      btn.disabled = true;
+    }
+    try {
+      const ranked = await rankedLocationsAsync(signal);
+      if (signal.aborted) return;
+      doRender(ranked);
+    } finally {
+      isLoadingDistances = false;
+      for (const btn of routeModeButtons) {
+        btn.disabled = false;
+      }
+    }
+  }
+
+  function doRender(ranked: Array<Place & { km: number; geometry?: Array<[number, number]> }>) {
     const dest = persisted.destination;
-    const ranked = rankedLocations();
     const color = accentColor();
 
     for (const btn of unitButtons) {
       btn.setAttribute(
         "aria-pressed",
         btn.dataset.unit === persisted.unit ? "true" : "false",
+      );
+    }
+
+    for (const btn of routeModeButtons) {
+      btn.setAttribute(
+        "aria-pressed",
+        btn.dataset.routeMode === persisted.distanceMode ? "true" : "false",
       );
     }
 
@@ -358,16 +414,28 @@ export function startProximity(
         zIndexOffset: 400,
       })
         .bindPopup(kmLabel ? `${place.name} · ${kmLabel}` : place.name)
+        .on("click", () => {
+          selectedLocationId = place.id;
+          render();
+        })
         .addTo(overlay);
       markers.set(place.id, locMarker);
       if (dest) {
-        L.polyline(
-          [
-            [place.lat, place.lon],
-            [dest.lat, dest.lon],
-          ],
-          { color, weight: 2, opacity: 0.7, dashArray: "6 6" },
-        ).addTo(overlay);
+        const latlngs: L.LatLngExpression[] = place.geometry
+          ? place.geometry.map(([lon, lat]) => [lat, lon])
+          : [
+              [place.lat, place.lon],
+              [dest.lat, dest.lon],
+            ];
+        const dashArray = place.geometry ? undefined : "6 6";
+        const isSelected = place.id === selectedLocationId;
+        L.polyline(latlngs, {
+          color,
+          weight: isSelected ? 4 : 2,
+          opacity: isSelected ? 1 : 0.4,
+          dashArray,
+          className: isSelected ? "px-edge-highlight" : undefined,
+        }).addTo(overlay);
       }
 
       const row = document.createElement("li");
@@ -395,7 +463,11 @@ export function startProximity(
         );
         render();
       });
-      row.addEventListener("click", () => focusPlace(place));
+      row.addEventListener("click", () => {
+        selectedLocationId = place.id;
+        focusPlace(place);
+        render();
+      });
       row.append(rank, name, dist, remove);
       locList.append(row);
     }
@@ -551,6 +623,23 @@ export function startProximity(
       () => {
         persisted.unit = btn.dataset.unit === "mi" ? "mi" : "km";
         render();
+      },
+      { signal: session.signal },
+    );
+  }
+
+  for (const btn of routeModeButtons) {
+    btn.addEventListener(
+      "click",
+      () => {
+        const mode = btn.dataset.routeMode as DistanceMode;
+        if (!mode || mode === "straight") {
+          persisted.distanceMode = "straight";
+          render();
+        } else if (!isLoadingDistances) {
+          persisted.distanceMode = mode;
+          void renderAsync(session.signal);
+        }
       },
       { signal: session.signal },
     );

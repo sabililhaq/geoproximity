@@ -12,6 +12,7 @@ const state = {
     { id: "location-id", name: "London", lat: 51.5074, lon: -0.1278 },
   ],
   unit: "mi" as const,
+  distanceMode: "straight" as const,
 };
 
 describe("share hash", () => {

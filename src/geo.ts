@@ -40,3 +40,53 @@ export function withDistance<T extends Coord>(
 		.map((item) => ({ ...item, km: distanceKm(item, destination) }))
 		.sort((a, b) => a.km - b.km);
 }
+
+export type RouteResult = {
+	km: number;
+	geometry?: Array<[number, number]>;
+};
+
+export async function getNetworkDistance(
+	a: Coord,
+	b: Coord,
+	mode: 'driving' | 'walking' = 'driving',
+	signal?: AbortSignal,
+): Promise<RouteResult> {
+	try {
+		const url = `https://router.project-osrm.org/route/v1/${mode}/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson`;
+		const response = await fetch(url, { signal });
+		if (!response.ok) throw new Error(`OSRM error: ${response.status}`);
+		const data = await response.json() as {
+			routes?: Array<{
+				distance: number;
+				geometry?: { type: string; coordinates: Array<[number, number]> };
+			}>;
+			code?: string;
+		};
+		if (data.code !== 'Ok' || !data.routes?.[0]) {
+			throw new Error(`No route found`);
+		}
+		const route = data.routes[0];
+		return {
+			km: route.distance / 1000,
+			geometry: route.geometry?.coordinates,
+		};
+	} catch (error) {
+		console.warn(`Network distance failed, falling back to great-circle:`, error);
+		return { km: distanceKm(a, b) };
+	}
+}
+
+export async function withNetworkDistance<T extends Coord>(
+	items: T[],
+	destination: Coord,
+	mode: 'driving' | 'walking' = 'driving',
+	signal?: AbortSignal,
+): Promise<Array<T & { km: number; geometry?: Array<[number, number]> }>> {
+	const routes = await Promise.all(
+		items.map((item) => getNetworkDistance(item, destination, mode, signal)),
+	);
+	return items
+		.map((item, i) => ({ ...item, km: routes[i].km, geometry: routes[i].geometry }))
+		.sort((a, b) => a.km - b.km);
+}
