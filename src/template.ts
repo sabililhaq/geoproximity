@@ -41,10 +41,6 @@ export const proximityMarkup = `
 						<button type="button" data-route-mode="driving" aria-pressed="false">Driving</button>
 						<button type="button" data-route-mode="walking" aria-pressed="false">Walking</button>
 					</div>
-					<div class="px-seg" role="group" aria-label="Distance unit">
-						<button type="button" data-unit="km">km</button>
-						<button type="button" data-unit="mi">mi</button>
-					</div>
 				</div>
 				<div class="px-io-row">
 					<button type="button" data-sample title="Sample">

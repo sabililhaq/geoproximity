@@ -1,5 +1,3 @@
-export type ProximityUnit = 'km' | 'mi';
-
 export type DistanceMode = 'straight' | 'driving' | 'walking';
 
 export type Place = {
@@ -12,6 +10,5 @@ export type Place = {
 export type ProximityState = {
 	destination: Place | null;
 	locations: Place[];
-	unit: ProximityUnit;
 	distanceMode: DistanceMode;
 };

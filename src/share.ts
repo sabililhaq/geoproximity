@@ -1,6 +1,6 @@
 import { parseProximityJson } from "./io";
 import type { ProximityNode } from "./io";
-import type { Place, ProximityState, ProximityUnit } from "./types";
+import type { ProximityState } from "./types";
 
 export function encodeShareHash(state: ProximityState): string {
   return `proximity=${encodeURIComponent(
@@ -17,7 +17,6 @@ export function encodeShareHash(state: ProximityState): string {
         lat: place.lat,
         lon: place.lon,
       })),
-      unit: state.unit,
     }),
   )}`;
 }
@@ -25,25 +24,15 @@ export function encodeShareHash(state: ProximityState): string {
 export function readShareHash(hash: string): {
   destination: ProximityNode | null;
   locations: ProximityNode[];
-  unit: ProximityUnit;
 } | null {
   const prefix = "#proximity=";
   if (!hash.startsWith(prefix)) return null;
 
   try {
     const text = decodeURIComponent(hash.slice(prefix.length));
-    const raw: unknown = JSON.parse(text);
     const result = parseProximityJson(text);
     if (!result.ok) return null;
-
-    const unit =
-      typeof raw === "object" &&
-      raw !== null &&
-      "unit" in raw &&
-      raw.unit === "mi"
-        ? "mi"
-        : "km";
-    return { ...result.data, unit };
+    return result.data;
   } catch {
     return null;
   }

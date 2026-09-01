@@ -4,7 +4,6 @@ export type Coord = {
 };
 
 const EARTH_KM = 6371;
-const KM_TO_MI = 0.621371192;
 
 export function distanceKm(a: Coord, b: Coord): number {
 	const lat1 = (a.lat * Math.PI) / 180;
@@ -16,16 +15,10 @@ export function distanceKm(a: Coord, b: Coord): number {
 	return 2 * EARTH_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-export function kmToMi(km: number): number {
-	return km * KM_TO_MI;
-}
-
-export function formatDistance(km: number, unit: 'km' | 'mi'): string {
-	const value = unit === 'mi' ? kmToMi(km) : km;
-	const label = unit === 'mi' ? 'mi' : 'km';
-	if (value < 1) return `${value.toFixed(2)} ${label}`;
-	if (value < 100) return `${value.toFixed(1)} ${label}`;
-	return `${Math.round(value).toLocaleString('en-US')} ${label}`;
+export function formatDistance(km: number): string {
+	if (km < 1) return `${km.toFixed(2)} km`;
+	if (km < 100) return `${km.toFixed(1)} km`;
+	return `${Math.round(km).toLocaleString('en-US')} km`;
 }
 
 export function samePlace(a: Coord, b: Coord, eps = 1e-4): boolean {

@@ -13,7 +13,6 @@ import type { Place, ProximityState, DistanceMode } from "./types";
 const persisted: ProximityState = {
   destination: null,
   locations: [],
-  unit: "km",
   distanceMode: "straight",
 };
 
@@ -52,10 +51,10 @@ function destIcon(): L.DivIcon {
   });
 }
 
-function locIcon(rank: number): L.DivIcon {
+function locIcon(rank: number, selected = false): L.DivIcon {
   return L.divIcon({
     className: "px-marker",
-    html: `<span class="px-marker-num">${rank}</span>`,
+    html: `<span class="px-marker-num${selected ? " is-selected" : ""}">${rank}</span>`,
     iconSize: [22, 22],
     iconAnchor: [11, 11],
   });
@@ -193,16 +192,13 @@ export function startProximity(
   const ioStatus = qs(root, "[data-io-status]");
   const hint = qs(root, "[data-px-hint]");
   const empty = qs(root, "[data-px-empty]");
-  const unitButtons = Array.from(
-    root.querySelectorAll<HTMLButtonElement>("[data-unit]"),
-  );
   const routeModeButtons = Array.from(
     root.querySelectorAll<HTMLButtonElement>("[data-route-mode]"),
   );
   let statusTimer = 0;
   let isLoadingDistances = false;
-  let distanceCache = new Map<string, number>();
   let selectedLocationId: string | null = null;
+  let distanceAbort: AbortController | null = null;
   shareBtn.hidden = !options.share;
 
   const session = new AbortController();
@@ -310,42 +306,102 @@ export function startProximity(
     map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 12 });
   }
 
+  function modeLabel(mode: DistanceMode): string {
+    if (mode === "driving") return "driving";
+    if (mode === "walking") return "walking";
+    return "straight-line";
+  }
+
   function render() {
     if (persisted.distanceMode !== "straight") {
-      void renderAsync(session.signal);
+      void renderAsync();
     } else {
-      const dest = persisted.destination;
-      const ranked = rankedLocations();
-      doRender(ranked);
+      doRender(rankedLocations());
     }
   }
 
-  async function renderAsync(signal: AbortSignal) {
+  async function renderAsync() {
+    distanceAbort?.abort();
+    const controller = new AbortController();
+    distanceAbort = controller;
+    const { signal } = controller;
+
     isLoadingDistances = true;
     for (const btn of routeModeButtons) {
       btn.disabled = true;
     }
+    host.classList.add("is-routing");
+    hint.hidden = false;
+    hint.textContent = `Fetching ${modeLabel(persisted.distanceMode)} routes…`;
+
     try {
       const ranked = await rankedLocationsAsync(signal);
       if (signal.aborted) return;
-      doRender(ranked);
-    } finally {
       isLoadingDistances = false;
+      host.classList.remove("is-routing");
       for (const btn of routeModeButtons) {
         btn.disabled = false;
+      }
+      doRender(ranked);
+    } catch {
+      if (!signal.aborted) {
+        hint.textContent = "Could not fetch routes · showing last result";
+      }
+    } finally {
+      if (distanceAbort === controller) {
+        isLoadingDistances = false;
+        distanceAbort = null;
+        host.classList.remove("is-routing");
+        for (const btn of routeModeButtons) {
+          btn.disabled = false;
+        }
       }
     }
   }
 
-  function doRender(ranked: Array<Place & { km: number; geometry?: Array<[number, number]> }>) {
+  function focusRoute(
+    place: Place & { geometry?: Array<[number, number]> },
+    dest: Place | null,
+    markers: Map<string, L.Marker>,
+  ) {
+    if (dest && place.geometry && place.geometry.length > 1) {
+      const latlngs = place.geometry.map(
+        ([lon, lat]) => [lat, lon] as L.LatLngExpression,
+      );
+      map.fitBounds(L.latLngBounds(latlngs), {
+        padding: [48, 48],
+        maxZoom: 14,
+      });
+    } else {
+      map.setView([place.lat, place.lon], Math.max(map.getZoom(), 13));
+    }
+    markers.get(place.id)?.openPopup();
+  }
+
+  function selectLocation(
+    placeId: string,
+    ranked: Array<Place & { km: number; geometry?: Array<[number, number]> }>,
+    selectOpts?: { fit?: boolean },
+  ) {
+    const nextId = selectedLocationId === placeId ? null : placeId;
+    selectedLocationId = nextId;
+    doRender(ranked, {
+      fitSelection: Boolean(selectOpts?.fit && nextId),
+    });
+  }
+
+  function doRender(
+    ranked: Array<Place & { km: number; geometry?: Array<[number, number]> }>,
+    renderOpts?: { fitSelection?: boolean },
+  ) {
     const dest = persisted.destination;
     const color = accentColor();
 
-    for (const btn of unitButtons) {
-      btn.setAttribute(
-        "aria-pressed",
-        btn.dataset.unit === persisted.unit ? "true" : "false",
-      );
+    if (
+      selectedLocationId &&
+      !ranked.some((place) => place.id === selectedLocationId)
+    ) {
+      selectedLocationId = null;
     }
 
     for (const btn of routeModeButtons) {
@@ -357,6 +413,8 @@ export function startProximity(
 
     overlay.clearLayers();
     const markers = new Map<string, L.Marker>();
+    let selectedPolyline: L.Polyline | null = null;
+    const hasSelection = Boolean(selectedLocationId);
 
     function focusPlace(place: Place) {
       map.setView([place.lat, place.lon], Math.max(map.getZoom(), 13));
@@ -392,6 +450,7 @@ export function startProximity(
       remove.className = "px-dest-remove";
       remove.textContent = "Remove";
       remove.addEventListener("click", () => {
+        selectedLocationId = null;
         persisted.destination = null;
         render();
       });
@@ -407,16 +466,16 @@ export function startProximity(
     locList.hidden = ranked.length === 0;
     for (const [index, place] of ranked.entries()) {
       const kmLabel = Number.isFinite(place.km)
-        ? formatDistance(place.km, persisted.unit)
+        ? formatDistance(place.km)
         : "";
+      const isSelected = place.id === selectedLocationId;
       const locMarker = L.marker([place.lat, place.lon], {
-        icon: locIcon(index + 1),
-        zIndexOffset: 400,
+        icon: locIcon(index + 1, isSelected),
+        zIndexOffset: isSelected ? 550 : 400,
       })
         .bindPopup(kmLabel ? `${place.name} · ${kmLabel}` : place.name)
         .on("click", () => {
-          selectedLocationId = place.id;
-          render();
+          selectLocation(place.id, ranked, { fit: true });
         })
         .addTo(overlay);
       markers.set(place.id, locMarker);
@@ -428,19 +487,43 @@ export function startProximity(
               [dest.lat, dest.lon],
             ];
         const dashArray = place.geometry ? undefined : "6 6";
-        const isSelected = place.id === selectedLocationId;
-        L.polyline(latlngs, {
+        const dimmed = hasSelection && !isSelected;
+        if (isSelected) {
+          L.polyline(latlngs, {
+            color,
+            weight: 10,
+            opacity: 0.22,
+            dashArray,
+            className: "px-edge px-edge-halo",
+            interactive: false,
+          }).addTo(overlay);
+        }
+        const line = L.polyline(latlngs, {
           color,
-          weight: isSelected ? 4 : 2,
-          opacity: isSelected ? 1 : 0.4,
+          weight: isSelected ? 5 : dimmed ? 2 : 2.5,
+          opacity: isSelected ? 1 : dimmed ? 0.18 : 0.45,
           dashArray,
-          className: isSelected ? "px-edge-highlight" : undefined,
-        }).addTo(overlay);
+          className: isSelected
+            ? "px-edge px-edge-highlight"
+            : dimmed
+              ? "px-edge px-edge-dim"
+              : "px-edge",
+          interactive: true,
+        })
+          .on("click", (event) => {
+            L.DomEvent.stopPropagation(event);
+            selectLocation(place.id, ranked, { fit: true });
+          })
+          .addTo(overlay);
+        if (isSelected) selectedPolyline = line;
       }
 
       const row = document.createElement("li");
-      row.className = "px-row";
-      row.title = "Show on map";
+      row.className = isSelected ? "px-row is-selected" : "px-row";
+      row.title = isSelected
+        ? "Click again to clear highlight"
+        : "Highlight route on map";
+      row.setAttribute("aria-current", isSelected ? "true" : "false");
       const rank = document.createElement("span");
       rank.className = "px-rank";
       rank.textContent = String(index + 1);
@@ -458,24 +541,56 @@ export function startProximity(
       remove.textContent = "×";
       remove.addEventListener("click", (event) => {
         event.stopPropagation();
+        if (selectedLocationId === place.id) selectedLocationId = null;
         persisted.locations = persisted.locations.filter(
           (item) => item.id !== place.id,
         );
         render();
       });
       row.addEventListener("click", () => {
-        selectedLocationId = place.id;
-        focusPlace(place);
-        render();
+        selectLocation(place.id, ranked, { fit: true });
       });
       row.append(rank, name, dist, remove);
       locList.append(row);
+      if (isSelected) {
+        queueMicrotask(() => {
+          const rowRect = row.getBoundingClientRect();
+          const listRect = locList.getBoundingClientRect();
+          if (rowRect.top < listRect.top) {
+            locList.scrollTop -= listRect.top - rowRect.top;
+          } else if (rowRect.bottom > listRect.bottom) {
+            locList.scrollTop += rowRect.bottom - listRect.bottom;
+          }
+        });
+      }
+    }
+
+    if (selectedPolyline) selectedPolyline.bringToFront();
+
+    if (renderOpts?.fitSelection && selectedLocationId && dest) {
+      const selected = ranked.find((place) => place.id === selectedLocationId);
+      if (selected) focusRoute(selected, dest, markers);
     }
 
     const hasNodes = Boolean(dest) || persisted.locations.length > 0;
-    hint.textContent = dest
-      ? "Click the map to add a location"
-      : "Click the map to set a destination";
+    const selected = selectedLocationId
+      ? ranked.find((place) => place.id === selectedLocationId)
+      : undefined;
+    if (isLoadingDistances) {
+      hint.textContent = `Fetching ${modeLabel(persisted.distanceMode)} routes…`;
+    } else if (selected) {
+      const label = Number.isFinite(selected.km)
+        ? `${selected.name} · ${formatDistance(selected.km)}`
+        : selected.name;
+      hint.textContent = `Highlighted: ${label} · click again to clear`;
+    } else if (dest) {
+      hint.textContent =
+        persisted.distanceMode === "straight"
+          ? "Click a location or path to highlight"
+          : `Showing ${modeLabel(persisted.distanceMode)} routes · click to highlight`;
+    } else {
+      hint.textContent = "Click the map to set a destination";
+    }
     hint.hidden = !hasNodes;
     empty.hidden = hasNodes;
     fitBtn.disabled = !hasNodes;
@@ -497,6 +612,7 @@ export function startProximity(
   }
 
   function applyFile(data: ProximityFile) {
+    selectedLocationId = null;
     persisted.destination = data.destination
       ? { id: crypto.randomUUID(), ...data.destination }
       : null;
@@ -609,6 +725,7 @@ export function startProximity(
   clearBtn.addEventListener(
     "click",
     () => {
+      selectedLocationId = null;
       persisted.destination = null;
       persisted.locations = [];
       render();
@@ -617,29 +734,16 @@ export function startProximity(
     { signal: session.signal },
   );
 
-  for (const btn of unitButtons) {
-    btn.addEventListener(
-      "click",
-      () => {
-        persisted.unit = btn.dataset.unit === "mi" ? "mi" : "km";
-        render();
-      },
-      { signal: session.signal },
-    );
-  }
-
   for (const btn of routeModeButtons) {
     btn.addEventListener(
       "click",
       () => {
         const mode = btn.dataset.routeMode as DistanceMode;
-        if (!mode || mode === "straight") {
-          persisted.distanceMode = "straight";
-          render();
-        } else if (!isLoadingDistances) {
-          persisted.distanceMode = mode;
-          void renderAsync(session.signal);
-        }
+        if (!mode) return;
+        if (mode === persisted.distanceMode) return;
+        selectedLocationId = null;
+        persisted.distanceMode = mode;
+        render();
       },
       { signal: session.signal },
     );
@@ -657,7 +761,6 @@ export function startProximity(
 
   const shared = options.share ? readShareHash(window.location.hash) : null;
   if (shared) {
-    persisted.unit = shared.unit;
     applyFile(shared);
     const count = shared.locations.length + (shared.destination ? 1 : 0);
     showStatus(`Loaded from shared link · ${count} nodes.`);
@@ -674,6 +777,7 @@ export function startProximity(
 
   return () => {
     session.abort();
+    distanceAbort?.abort();
     window.clearTimeout(statusTimer);
     themeObs.disconnect();
     resize.disconnect();

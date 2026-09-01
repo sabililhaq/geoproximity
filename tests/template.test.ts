@@ -12,8 +12,6 @@ describe('proximity markup', () => {
 			'data-clear',
 			'data-sample',
 			'data-loc-empty',
-			'data-unit="km"',
-			'data-unit="mi"',
 			'data-route-mode="straight"',
 			'data-route-mode="driving"',
 			'data-route-mode="walking"',
@@ -21,6 +19,7 @@ describe('proximity markup', () => {
 		]) {
 			expect(proximityMarkup).toContain(hook);
 		}
+		expect(proximityMarkup).not.toContain('data-unit');
 	});
 
 	it('does not reuse cartis control ids', () => {

@@ -11,7 +11,6 @@ const state = {
   locations: [
     { id: "location-id", name: "London", lat: 51.5074, lon: -0.1278 },
   ],
-  unit: "mi" as const,
   distanceMode: "straight" as const,
 };
 
@@ -22,7 +21,6 @@ describe("share hash", () => {
     expect(result).toEqual({
       destination: { name: "Paris", lat: 48.8566, lon: 2.3522 },
       locations: [{ name: "London", lat: 51.5074, lon: -0.1278 }],
-      unit: "mi",
     });
   });
 
@@ -37,9 +35,11 @@ describe("share hash", () => {
     ).toBeNull();
   });
 
-  it("defaults the unit to kilometers when absent", () => {
-    const hash = `#proximity=${encodeURIComponent(JSON.stringify({ destination: null, locations: [] }))}`;
+  it("ignores a legacy unit field in shared links", () => {
+    const hash = `#proximity=${encodeURIComponent(
+      JSON.stringify({ destination: null, locations: [], unit: "mi" }),
+    )}`;
 
-    expect(readShareHash(hash)?.unit).toBe("km");
+    expect(readShareHash(hash)).toEqual({ destination: null, locations: [] });
   });
 });

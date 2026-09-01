@@ -24,16 +24,15 @@ describe('distanceKm', () => {
 
 describe('formatDistance', () => {
 	it('uses two decimals under 1', () => {
-		expect(formatDistance(0.4, 'km')).toBe('0.40 km');
+		expect(formatDistance(0.4)).toBe('0.40 km');
 	});
 
 	it('uses one decimal under 100', () => {
-		expect(formatDistance(12.34, 'km')).toBe('12.3 km');
+		expect(formatDistance(12.34)).toBe('12.3 km');
 	});
 
-	it('rounds larger distances and can switch to miles', () => {
-		expect(formatDistance(1200, 'km')).toBe('1,200 km');
-		expect(formatDistance(10, 'mi')).toBe('6.2 mi');
+	it('rounds larger distances', () => {
+		expect(formatDistance(1200)).toBe('1,200 km');
 	});
 });
 

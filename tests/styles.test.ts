@@ -34,4 +34,11 @@ describe("proximity control panel surfaces", () => {
       /\.px-io-row svg[\s\S]*?width:\s*1\.25rem;[\s\S]*?height:\s*1\.25rem;/,
     );
   });
+
+  it("styles route highlight and selected location row", () => {
+    expect(css).toMatch(/\.px-row\.is-selected \{/);
+    expect(css).toMatch(/\.px-edge-highlight \{/);
+    expect(css).toMatch(/\.px-edge-halo \{/);
+    expect(css).toMatch(/\.px-marker-num\.is-selected \{/);
+  });
 });
