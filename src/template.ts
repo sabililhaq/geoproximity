@@ -11,9 +11,19 @@ export const proximityMarkup = `
 			<div class="px-sidebar-body">
 				<section class="px-section">
 					<h2>Destination</h2>
+					<div class="px-search-mode">
+						<label>
+							<input type="radio" name="dest-mode" value="search" checked />
+							Search
+						</label>
+						<label>
+							<input type="radio" name="dest-mode" value="coords" />
+							Coordinates
+						</label>
+					</div>
 					<form data-dest-form class="px-search">
-						<label class="px-sr" for="px-dest-input">Search destination</label>
-						<input id="px-dest-input" data-dest-input type="search" placeholder="Search a destination" autocomplete="off" enterkeyhint="search" />
+						<label class="px-sr" for="px-dest-input">Search or enter coordinates</label>
+						<input id="px-dest-input" data-dest-input type="search" placeholder="Search a destination" autocomplete="off" enterkeyhint="search" data-input-mode="search" />
 						<div data-dest-results class="px-results" hidden></div>
 					</form>
 					<div class="px-btn-row" data-dest-tools>
@@ -24,9 +34,19 @@ export const proximityMarkup = `
 
 				<section class="px-section">
 					<h2>transport hub locations</h2>
+					<div class="px-search-mode">
+						<label>
+							<input type="radio" name="loc-mode" value="search" checked />
+							Search
+						</label>
+						<label>
+							<input type="radio" name="loc-mode" value="coords" />
+							Coordinates
+						</label>
+					</div>
 					<form data-loc-form class="px-search">
 						<label class="px-sr" for="px-loc-input">Add a travel location</label>
-						<input id="px-loc-input" data-loc-input type="search" placeholder="Add a city or place" autocomplete="off" enterkeyhint="search" />
+						<input id="px-loc-input" data-loc-input type="search" placeholder="Add a city or place" autocomplete="off" enterkeyhint="search" data-input-mode="search" />
 						<div data-loc-results class="px-results" hidden></div>
 					</form>
 					<p data-loc-empty class="px-list-empty">Search a place, or click the map.</p>

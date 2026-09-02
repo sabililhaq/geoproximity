@@ -16,6 +16,20 @@ const persisted: ProximityState = {
   distanceMode: "straight",
 };
 
+function parseCoordinates(input: string): { lat: number; lon: number } | null {
+  const trimmed = input.trim();
+  const match = trimmed.match(/^\s*([-\d.]+)\s*[,\s]\s*([-\d.]+)\s*$/);
+  if (!match) return null;
+
+  const lat = parseFloat(match[1]);
+  const lon = parseFloat(match[2]);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+
+  return { lat, lon };
+}
+
 const maps = new WeakMap<HTMLElement, L.Map>();
 
 export function invalidateProximity(root: HTMLElement): void {
@@ -107,13 +121,42 @@ function bindSearch(
     results.hidden = false;
   };
 
+  let selectedResultIndex = -1;
+
   const run = async () => {
     const query = input.value.trim();
     const seq = ++searchSeq;
+    selectedResultIndex = -1;
     if (query.length < 2) {
       hide();
       return;
     }
+
+    const mode = input.getAttribute('data-input-mode') || 'search';
+    if (mode === 'coords') {
+      const coords = parseCoordinates(query);
+      if (coords) {
+        const name = `${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}`;
+        onPick({
+          id: crypto.randomUUID(),
+          name,
+          lat: coords.lat,
+          lon: coords.lon,
+        });
+        input.value = '';
+        hide();
+        return;
+      } else {
+        results.replaceChildren();
+        const error = document.createElement('div');
+        error.className = 'px-empty';
+        error.textContent = 'Invalid coordinates. Use format: lat, lon';
+        results.append(error);
+        results.hidden = false;
+        return;
+      }
+    }
+
     searchAbort?.abort();
     searchAbort = new AbortController();
     results.hidden = false;
@@ -150,6 +193,63 @@ function bindSearch(
     },
     { signal },
   );
+
+  input.addEventListener(
+    "keydown",
+    (e) => {
+      const items = results.querySelectorAll('.px-hit');
+      if (items.length === 0) return;
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          selectedResultIndex = Math.min(selectedResultIndex + 1, items.length - 1);
+          updateResultHighlight();
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          selectedResultIndex = Math.max(selectedResultIndex - 1, -1);
+          updateResultHighlight();
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (selectedResultIndex >= 0) {
+            (items[selectedResultIndex] as HTMLElement).click();
+          } else {
+            void run();
+          }
+          break;
+      }
+    },
+    { signal },
+  );
+
+  const updateResultHighlight = () => {
+    const items = results.querySelectorAll('.px-hit');
+    items.forEach((item, i) => {
+      item.classList.toggle('is-keyboard-focused', i === selectedResultIndex);
+    });
+    if (selectedResultIndex >= 0) {
+      (items[selectedResultIndex] as HTMLElement).scrollIntoView({ block: 'nearest' });
+    }
+  };
+
+  const modeRadios = form.parentElement?.querySelectorAll('input[type="radio"]');
+  if (modeRadios) {
+    for (const radio of modeRadios) {
+      radio.addEventListener('change', () => {
+        const newMode = (radio as HTMLInputElement).value;
+        input.setAttribute('data-input-mode', newMode);
+        input.placeholder = newMode === 'coords'
+          ? 'e.g., 48.8566, 2.3522'
+          : input.placeholder.includes('destination')
+            ? 'Search a destination'
+            : 'Add a city or place';
+        input.value = '';
+        hide();
+      }, { signal });
+    }
+  }
 
   signal.addEventListener("abort", () => {
     window.clearTimeout(timer);
@@ -198,6 +298,7 @@ export function startProximity(
   let statusTimer = 0;
   let isLoadingDistances = false;
   let selectedLocationId: string | null = null;
+  let keyboardFocusedRowId: string | null = null;
   let distanceAbort: AbortController | null = null;
   shareBtn.hidden = !options.share;
 
@@ -265,6 +366,65 @@ export function startProximity(
   }
 
   resize.observe(host);
+
+  function focusRowByIndex(
+    index: number,
+    ranked: Array<Place & { km: number; geometry?: Array<[number, number]> }>,
+  ) {
+    if (index < 0 || index >= ranked.length) return;
+    const place = ranked[index];
+    keyboardFocusedRowId = place.id;
+    selectLocation(place.id, ranked, { fit: false });
+  }
+
+  function handleLocationListKeyboard(
+    event: KeyboardEvent,
+    ranked: Array<Place & { km: number; geometry?: Array<[number, number]> }>,
+  ) {
+    const currentIndex = ranked.findIndex((p) => p.id === keyboardFocusedRowId);
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        focusRowByIndex(currentIndex + 1, ranked);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        focusRowByIndex(currentIndex - 1, ranked);
+        break;
+      case 'Enter':
+        event.preventDefault();
+        if (keyboardFocusedRowId) {
+          selectLocation(keyboardFocusedRowId, ranked, { fit: true });
+        }
+        break;
+      case 'Escape':
+        event.preventDefault();
+        keyboardFocusedRowId = null;
+        selectedLocationId = null;
+        render();
+        break;
+      case 'Backspace':
+      case 'Delete':
+        event.preventDefault();
+        if (keyboardFocusedRowId) {
+          persisted.locations = persisted.locations.filter(
+            (item) => item.id !== keyboardFocusedRowId,
+          );
+          keyboardFocusedRowId = null;
+          render();
+        }
+        break;
+      case 'Home':
+        event.preventDefault();
+        focusRowByIndex(0, ranked);
+        break;
+      case 'End':
+        event.preventDefault();
+        focusRowByIndex(ranked.length - 1, ranked);
+        break;
+    }
+  }
 
   function rankedLocations() {
     if (!persisted.destination) {
@@ -343,9 +503,9 @@ export function startProximity(
         btn.disabled = false;
       }
       doRender(ranked);
-    } catch {
+    } catch (err) {
       if (!signal.aborted) {
-        hint.textContent = "Could not fetch routes · showing last result";
+        hint.textContent = `Could not fetch ${modeLabel(persisted.distanceMode)} routes · showing straight-line distance`;
       }
     } finally {
       if (distanceAbort === controller) {
@@ -550,6 +710,13 @@ export function startProximity(
       row.addEventListener("click", () => {
         selectLocation(place.id, ranked, { fit: true });
       });
+      row.addEventListener("keydown", (e) => {
+        handleLocationListKeyboard(e, ranked);
+      });
+      row.addEventListener("focus", () => {
+        keyboardFocusedRowId = place.id;
+      });
+      row.setAttribute("tabindex", "0");
       row.append(rank, name, dist, remove);
       locList.append(row);
       if (isSelected) {
@@ -566,6 +733,10 @@ export function startProximity(
     }
 
     if (selectedPolyline) selectedPolyline.bringToFront();
+
+    locList.addEventListener("keydown", (e) => {
+      handleLocationListKeyboard(e, ranked);
+    });
 
     if (renderOpts?.fitSelection && selectedLocationId && dest) {
       const selected = ranked.find((place) => place.id === selectedLocationId);
@@ -656,7 +827,7 @@ export function startProximity(
     "click",
     () => {
       if (!navigator.geolocation) {
-        useLocationBtn.textContent = "Location unavailable";
+        showStatus("Location services not available on this device");
         return;
       }
       useLocationBtn.disabled = true;
@@ -676,7 +847,16 @@ export function startProximity(
           useLocationBtn.disabled = false;
           useLocationBtn.textContent = "Use my location";
         },
-        () => {
+        (error) => {
+          if (error.code === error.PERMISSION_DENIED) {
+            showStatus("Enable location permission in browser settings");
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            showStatus("Location not available (check GPS/connection)");
+          } else if (error.code === error.TIMEOUT) {
+            showStatus("Location request timed out");
+          } else {
+            showStatus("Could not determine location");
+          }
           useLocationBtn.disabled = false;
           useLocationBtn.textContent = "Use my location";
         },
@@ -758,6 +938,31 @@ export function startProximity(
       else addLocation(place);
     });
   });
+
+  host.addEventListener(
+    "keydown",
+    (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        const input =
+          document.activeElement?.id === "px-dest-input"
+            ? locInput
+            : destInput;
+        input.focus();
+        input.select();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "C") {
+        e.preventDefault();
+        selectedLocationId = null;
+        keyboardFocusedRowId = null;
+        persisted.destination = null;
+        persisted.locations = [];
+        render();
+        fit(true);
+      }
+    },
+    { signal: session.signal },
+  );
 
   const shared = options.share ? readShareHash(window.location.hash) : null;
   if (shared) {

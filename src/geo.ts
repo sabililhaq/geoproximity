@@ -37,6 +37,7 @@ export function withDistance<T extends Coord>(
 export type RouteResult = {
 	km: number;
 	geometry?: Array<[number, number]>;
+	error?: 'network' | 'no_route' | 'unknown';
 };
 
 export async function getNetworkDistance(
@@ -47,8 +48,19 @@ export async function getNetworkDistance(
 ): Promise<RouteResult> {
 	try {
 		const url = `https://router.project-osrm.org/route/v1/${mode}/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson`;
-		const response = await fetch(url, { signal });
-		if (!response.ok) throw new Error(`OSRM error: ${response.status}`);
+		let response: Response;
+		try {
+			response = await fetch(url, { signal });
+		} catch (err) {
+			console.warn('Network error reaching OSRM:', err);
+			return { km: distanceKm(a, b), error: 'network' };
+		}
+
+		if (!response.ok) {
+			console.warn(`OSRM HTTP error: ${response.status}`);
+			return { km: distanceKm(a, b), error: 'network' };
+		}
+
 		const data = await response.json() as {
 			routes?: Array<{
 				distance: number;
@@ -56,17 +68,25 @@ export async function getNetworkDistance(
 			}>;
 			code?: string;
 		};
-		if (data.code !== 'Ok' || !data.routes?.[0]) {
-			throw new Error(`No route found`);
+
+		if (data.code !== 'Ok') {
+			console.warn(`OSRM error code: ${data.code}`);
+			return { km: distanceKm(a, b), error: 'no_route' };
 		}
+
+		if (!data.routes?.[0]) {
+			console.warn('OSRM returned no routes');
+			return { km: distanceKm(a, b), error: 'no_route' };
+		}
+
 		const route = data.routes[0];
 		return {
 			km: route.distance / 1000,
 			geometry: route.geometry?.coordinates,
 		};
 	} catch (error) {
-		console.warn(`Network distance failed, falling back to great-circle:`, error);
-		return { km: distanceKm(a, b) };
+		console.warn('Unexpected error during routing:', error);
+		return { km: distanceKm(a, b), error: 'unknown' };
 	}
 }
 

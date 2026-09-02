@@ -128,6 +128,35 @@
 	margin-bottom: 0.45rem;
 }
 
+.px-search-mode {
+	display: flex;
+	gap: 0.8rem;
+	margin-bottom: 0.6rem;
+	font-size: 0.75rem;
+}
+
+.px-search-mode label {
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+	cursor: pointer;
+	color: var(--px-muted);
+	transition: color 0.15s;
+}
+
+.px-search-mode input[type="radio"] {
+	cursor: pointer;
+	width: 14px;
+	height: 14px;
+	margin: 0;
+}
+
+.px-search-mode input[type="radio"]:checked + label,
+.px-search-mode label:has(input[type="radio"]:checked) {
+	color: var(--px-ink);
+	font-weight: 500;
+}
+
 .px-search {
 	position: relative;
 }
@@ -185,6 +214,12 @@
 .px-hit:hover,
 .px-hit:focus-visible {
 	background: rgb(var(--row-hover));
+}
+
+.px-hit.is-keyboard-focused {
+	background: rgb(var(--row-hover));
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
 }
 
 .px-btn-row {
@@ -312,6 +347,12 @@
 
 .px-row:hover {
 	border-color: var(--accent);
+}
+
+.px-row:focus,
+.px-row:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
 }
 
 .px-row.is-selected {
