@@ -9,6 +9,13 @@ export const proximityMarkup = `
 			</div>
 
 			<div class="px-sidebar-body">
+				<div class="px-route-row">
+					<div class="px-seg" role="group" aria-label="Distance method">
+						<button type="button" data-route-mode="straight" aria-pressed="true">Straight line</button>
+						<button type="button" data-route-mode="driving" aria-pressed="false">Driving</button>
+						<button type="button" data-route-mode="walking" aria-pressed="false">Walking</button>
+					</div>
+				</div>
 				<section class="px-section">
 					<h2>Destination</h2>
 					<div class="px-search-mode">
@@ -55,13 +62,6 @@ export const proximityMarkup = `
 			</div>
 
 			<div class="px-actions">
-				<div class="px-route-row">
-					<div class="px-seg" role="group" aria-label="Distance method">
-						<button type="button" data-route-mode="straight" aria-pressed="true">Straight line</button>
-						<button type="button" data-route-mode="driving" aria-pressed="false">Driving</button>
-						<button type="button" data-route-mode="walking" aria-pressed="false">Walking</button>
-					</div>
-				</div>
 				<div class="px-io-row">
 					<button type="button" data-sample title="Sample">
 						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.68-1.31-1.31c-.98-.98-2.58-.98-3.56 0L3.68 15.46c-.39.39-.68.88-.84 1.41L2 22l5.13-.84c.53-.16 1.02-.45 1.41-.84l13.09-13.09c.98-.98.98-2.58 0-3.56Z"></path></svg>
@@ -87,7 +87,7 @@ export const proximityMarkup = `
 			<div data-px-map class="px-map" role="application" aria-label="Proximity map"></div>
 			<p data-px-hint class="px-hint" hidden>Click the map to set a destination</p>
 			<div data-px-empty class="px-map-empty">
-				<p>Set a destination, then add travel locations to compare distance.</p>
+				<p>Choose a destination, then add travel locations to compare distance. Try the sample to see it in action.</p>
 				<button type="button" data-sample title="Sample">
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; vertical-align: text-bottom;"><path d="m21.64 3.68-1.31-1.31c-.98-.98-2.58-.98-3.56 0L3.68 15.46c-.39.39-.68.88-.84 1.41L2 22l5.13-.84c.53-.16 1.02-.45 1.41-.84l13.09-13.09c.98-.98.98-2.58 0-3.56Z"></path></svg>
 					Sample

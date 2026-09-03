@@ -50,6 +50,7 @@
 	min-height: 0;
 	background: var(--px-wash);
 	border-top: 1px solid var(--px-border);
+	overflow: hidden;
 }
 
 .px-map-wrap {
@@ -102,10 +103,13 @@
 .px-sidebar-body {
 	flex: 1 1 0%;
 	min-height: 0;
-	overflow: hidden;
+	overflow-y: auto;
+	overflow-x: hidden;
 	padding: 0.9rem 1rem 1rem;
 	display: flex;
 	flex-direction: column;
+	gap: 0.8rem;
+	-webkit-overflow-scrolling: touch;
 }
 
 .px-section + .px-section {
@@ -117,6 +121,11 @@
 	min-height: 0;
 	display: flex;
 	flex-direction: column;
+}
+
+.px-route-row + .px-section,
+.px-section + .px-route-row {
+	margin-top: 0.8rem;
 }
 
 .px-section h2 {
@@ -431,6 +440,7 @@
 	border-radius: 999px;
 	padding: 0.28rem 0.7rem;
 	background: transparent;
+	flex: 1 1 0;
 }
 
 .px-seg button[aria-pressed='true'] {
@@ -663,31 +673,60 @@
 	transition: background 0.15s;
 }
 
-@container px (max-width: 767px) {
+@media (max-width: 767px) {
 	.px-layout {
-		grid-template-rows: minmax(0, 1fr) 6px minmax(340px, var(--px-sidebar-h));
+		--px-sidebar-h: clamp(290px, 40vh, 430px);
+		grid-template-rows: minmax(0, 1fr) 10px minmax(0, var(--px-sidebar-h));
 	}
 
 	.px-map-wrap {
 		height: 100%;
+		border-radius: 0;
+		overflow: hidden;
 	}
 
 	.px-resizer {
 		cursor: row-resize;
+		background: transparent;
+		padding-top: 0.2rem;
 	}
 
 	.px-resizer-handle {
-		width: 48px;
-		height: 4px;
-		margin: 1px auto;
+		width: 56px;
+		height: 6px;
+		margin: 0 auto;
+	}
+
+	.px-sidebar {
+		border-top: 0;
+		border-radius: 18px 18px 0 0;
+		box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.1);
+		overflow: hidden;
 	}
 
 	.px-sidebar-head {
-		padding: 0.65rem 1rem 0.45rem;
+		order: 3;
+		padding: 0.7rem 1rem 0.55rem;
+		background: color-mix(in srgb, var(--px-fill) 96%, var(--px-wash));
+	}
+
+	.px-sidebar-body {
+		order: 1;
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow: auto;
+		-webkit-overflow-scrolling: touch;
+		gap: 0.9rem;
+	}
+
+	.px-actions {
+		order: 2;
+		flex-shrink: 0;
 	}
 
 	.px-sidebar-head p {
-		display: none;
+		display: block;
+		font-size: 0.76rem;
 	}
 
 	.px-sidebar-body {
@@ -698,8 +737,130 @@
 		margin-top: 0.85rem;
 	}
 
+	.px-row {
+		grid-template-columns: 1.4rem minmax(0, 1fr) auto auto;
+		gap: 0.35rem;
+		padding: 0.38rem 0.45rem;
+	}
+
+	.px-row-name {
+		font-size: 0.82rem;
+	}
+
+	.px-route-row {
+		width: 100%;
+	}
+
+	.px-seg {
+		display: flex;
+		width: 100%;
+	}
+
+	.px-seg button {
+		flex: 1 1 0;
+		padding: 0.42rem 0.5rem;
+		font-size: 0.78rem;
+	}
+
+	.px-map-empty {
+		width: min(18rem, calc(100% - 1.5rem));
+		padding: 0.9rem 1rem;
+		border-radius: 16px;
+		box-shadow: 0 16px 28px rgba(0, 0, 0, 0.12);
+	}
+
+	.px-map-empty p {
+		font-size: 0.78rem;
+		line-height: 1.45;
+	}
+
+	.px-io-status {
+		padding-top: 0.1rem;
+	}
+
 	.px-actions {
-		padding: 0.5rem 1rem 0.6rem;
+		padding: 0.5rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
+	}
+}
+
+@container px (max-width: 767px) {
+	.px-layout {
+		grid-template-rows: minmax(0, 1fr) 10px minmax(0, var(--px-sidebar-h));
+	}
+
+	.px-sidebar {
+		border-radius: 18px 18px 0 0;
+		box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.1);
+	}
+
+	.px-resizer {
+		cursor: row-resize;
+	}
+
+	.px-resizer-handle {
+		width: 56px;
+		height: 6px;
+		margin: 0 auto;
+	}
+
+	.px-sidebar-head {
+		order: 3;
+		padding: 0.7rem 1rem 0.55rem;
+	}
+
+	.px-sidebar-head p {
+		display: block;
+		font-size: 0.76rem;
+	}
+
+	.px-sidebar-body {
+		order: 1;
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow: auto;
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: thin;
+		scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+		gap: 0.9rem;
+	}
+
+	.px-sidebar-body::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.px-sidebar-body::-webkit-scrollbar-thumb {
+		background: rgba(0, 0, 0, 0.18);
+		border-radius: 999px;
+	}
+
+	.px-actions {
+		order: 2;
+		flex-shrink: 0;
+	}
+
+	.px-row {
+		grid-template-columns: 1.4rem minmax(0, 1fr) auto auto;
+		gap: 0.35rem;
+		padding: 0.38rem 0.45rem;
+	}
+
+	.px-route-row {
+		width: 100%;
+	}
+
+	.px-seg {
+		display: flex;
+		width: 100%;
+	}
+
+	.px-seg button {
+		flex: 1 1 0;
+		padding: 0.42rem 0.5rem;
+		font-size: 0.78rem;
+	}
+
+	.px-actions {
+		padding: 0.5rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
 	}
 }
 
