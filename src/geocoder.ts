@@ -48,7 +48,7 @@ async function searchNominatim(
 ): Promise<GeocodeHit[]> {
 	const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&limit=${limit}&addressdetails=1`;
 	const response = await fetch(url, { signal, headers: { Accept: 'application/json' } });
-	if (!response.ok) return [];
+	if (!response.ok) throw new Error(`Nominatim ${response.status}`);
 	const data: unknown = await response.json();
 	if (!Array.isArray(data)) return [];
 
@@ -75,7 +75,7 @@ async function searchPhoton(
 ): Promise<GeocodeHit[]> {
 	const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=${limit}`;
 	const response = await fetch(url, { signal, headers: { Accept: 'application/json' } });
-	if (!response.ok) return [];
+	if (!response.ok) throw new Error(`Photon ${response.status}`);
 	const data: { features?: PhotonFeature[] } = await response.json();
 	const features = Array.isArray(data.features) ? data.features : [];
 
@@ -98,23 +98,38 @@ async function searchPhoton(
 	});
 }
 
-export async function searchLocation(query: string, opts: SearchOptions = {}): Promise<GeocodeHit[]> {
-	if (!query || query.length < 2) return [];
+export type GeocodeSearch = {
+	hits: GeocodeHit[];
+	/** True when every geocoding provider failed, so an empty result is not "no such place". */
+	unavailable: boolean;
+};
+
+export async function searchPlaces(query: string, opts: SearchOptions = {}): Promise<GeocodeSearch> {
+	const none: GeocodeSearch = { hits: [], unavailable: false };
+	if (!query || query.length < 2) return none;
 	const { limit = 8, signal } = opts;
+
+	let nominatimFailed = false;
 	try {
-		const nominatim = await searchNominatim(query, limit, signal);
-		if (nominatim.length > 0) return nominatim;
-		return await searchPhoton(query, limit, signal);
+		const hits = await searchNominatim(query, limit, signal);
+		if (hits.length > 0) return { hits, unavailable: false };
 	} catch (error) {
-		if (isAbortError(error)) return [];
-		try {
-			return await searchPhoton(query, limit, signal);
-		} catch (fallbackError) {
-			if (isAbortError(fallbackError)) return [];
-			console.error('Geocoding error:', fallbackError);
-			return [];
-		}
+		if (isAbortError(error)) return none;
+		nominatimFailed = true;
 	}
+
+	try {
+		const hits = await searchPhoton(query, limit, signal);
+		return { hits, unavailable: false };
+	} catch (error) {
+		if (isAbortError(error)) return none;
+		console.warn('Geocoding error:', error);
+		return { hits: [], unavailable: nominatimFailed };
+	}
+}
+
+export async function searchLocation(query: string, opts: SearchOptions = {}): Promise<GeocodeHit[]> {
+	return (await searchPlaces(query, opts)).hits;
 }
 
 export async function reverseGeocode(

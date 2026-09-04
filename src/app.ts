@@ -1,6 +1,6 @@
 import L from "leaflet";
-import { formatDistance, samePlace, withDistance, withNetworkDistance } from "./geo";
-import { reverseGeocode, searchLocation, type GeocodeHit } from "./geocoder";
+import { formatDistance, samePlace, withDistance, withNetworkDistance, type RouteError } from "./geo";
+import { reverseGeocode, searchPlaces, type GeocodeHit } from "./geocoder";
 import {
   parseProximityJson,
   type ProximityFile,
@@ -9,6 +9,13 @@ import { encodeShareHash, readShareHash } from "./share";
 import sampleProximity from "./sample-proximity.json";
 import { cartoTileUrl, resolveCartoApiKey } from "./basemap";
 import type { Place, ProximityState, DistanceMode } from "./types";
+
+type RankedPlace = Place & {
+  km: number;
+  geometry?: Array<[number, number]>;
+  /** Routing failed for this place; `km` is a straight-line fallback. */
+  error?: RouteError;
+};
 
 const persisted: ProximityState = {
   destination: null,
@@ -91,12 +98,14 @@ function bindSearch(
     results.replaceChildren();
   };
 
-  const renderHits = (hits: GeocodeHit[]) => {
+  const renderHits = (hits: GeocodeHit[], unavailable = false) => {
     results.replaceChildren();
     if (hits.length === 0) {
       const empty = document.createElement("div");
       empty.className = "px-empty";
-      empty.textContent = "No results";
+      empty.textContent = unavailable
+        ? "Search is unavailable right now · try pasting coordinates (lat, lon)"
+        : "No results";
       results.append(empty);
       results.hidden = false;
       return;
@@ -162,9 +171,9 @@ function bindSearch(
     results.hidden = false;
     results.textContent = "Searching…";
     const controller = searchAbort;
-    const hits = await searchLocation(query, { signal: controller.signal });
+    const result = await searchPlaces(query, { signal: controller.signal });
     if (seq !== searchSeq || controller.signal.aborted) return;
-    renderHits(hits);
+    renderHits(result.hits, result.unavailable);
   };
 
   input.addEventListener(
@@ -305,12 +314,22 @@ export function startProximity(
   const session = new AbortController();
   const map = L.map(mapEl, { worldCopyJump: true }).setView([20, 0], 2);
   const cartoApiKey = resolveCartoApiKey(options.cartoApiKey);
-  const addTiles = () =>
-    L.tileLayer(cartoTileUrl(document.documentElement.dataset.theme, cartoApiKey), {
-      maxZoom: 19,
-      subdomains: "abcd",
-      attribution: CARTO_ATTRIBUTION,
-    }).addTo(map);
+  let tileErrorShown = false;
+  const addTiles = () => {
+    const layer = L.tileLayer(
+      cartoTileUrl(document.documentElement.dataset.theme, cartoApiKey),
+      { maxZoom: 19, subdomains: "abcd", attribution: CARTO_ATTRIBUTION },
+    ).addTo(map);
+    layer.on("tileerror", () => {
+      if (tileErrorShown) return;
+      tileErrorShown = true;
+      showStatus("Map tiles failed to load · check your connection or CARTO key");
+    });
+    layer.on("load", () => {
+      tileErrorShown = false;
+    });
+    return layer;
+  };
   let tiles = addTiles();
   const overlay = L.layerGroup().addTo(map);
   maps.set(root, map);
@@ -369,7 +388,7 @@ export function startProximity(
 
   function focusRowByIndex(
     index: number,
-    ranked: Array<Place & { km: number; geometry?: Array<[number, number]> }>,
+    ranked: RankedPlace[],
   ) {
     if (index < 0 || index >= ranked.length) return;
     const place = ranked[index];
@@ -379,7 +398,7 @@ export function startProximity(
 
   function handleLocationListKeyboard(
     event: KeyboardEvent,
-    ranked: Array<Place & { km: number; geometry?: Array<[number, number]> }>,
+    ranked: RankedPlace[],
   ) {
     const currentIndex = ranked.findIndex((p) => p.id === keyboardFocusedRowId);
 
@@ -426,14 +445,14 @@ export function startProximity(
     }
   }
 
-  function rankedLocations() {
+  function rankedLocations(): RankedPlace[] {
     if (!persisted.destination) {
       return persisted.locations.map((place) => ({ ...place, km: Number.NaN }));
     }
     return withDistance(persisted.locations, persisted.destination);
   }
 
-  async function rankedLocationsAsync(signal: AbortSignal) {
+  async function rankedLocationsAsync(signal: AbortSignal): Promise<RankedPlace[]> {
     if (!persisted.destination) {
       return persisted.locations.map((place) => ({ ...place, km: Number.NaN }));
     }
@@ -497,6 +516,15 @@ export function startProximity(
     try {
       const ranked = await rankedLocationsAsync(signal);
       if (signal.aborted) return;
+      const fallback = ranked.filter((place) => place.error).length;
+      if (fallback > 0) {
+        const label = modeLabel(persisted.distanceMode);
+        showStatus(
+          fallback === ranked.length
+            ? `${label.charAt(0).toUpperCase()}${label.slice(1)} routing unavailable · showing straight-line distances.`
+            : `No ${label} route for ${fallback} of ${ranked.length} locations · straight-line shown for those.`,
+        );
+      }
       isLoadingDistances = false;
       host.classList.remove("is-routing");
       for (const btn of routeModeButtons) {
@@ -540,7 +568,7 @@ export function startProximity(
 
   function selectLocation(
     placeId: string,
-    ranked: Array<Place & { km: number; geometry?: Array<[number, number]> }>,
+    ranked: RankedPlace[],
     selectOpts?: { fit?: boolean },
   ) {
     const nextId = selectedLocationId === placeId ? null : placeId;
@@ -551,7 +579,7 @@ export function startProximity(
   }
 
   function doRender(
-    ranked: Array<Place & { km: number; geometry?: Array<[number, number]> }>,
+    ranked: RankedPlace[],
     renderOpts?: { fitSelection?: boolean },
   ) {
     const dest = persisted.destination;
@@ -626,7 +654,7 @@ export function startProximity(
     locList.hidden = ranked.length === 0;
     for (const [index, place] of ranked.entries()) {
       const kmLabel = Number.isFinite(place.km)
-        ? formatDistance(place.km)
+        ? `${place.error ? "≈ " : ""}${formatDistance(place.km)}`
         : "";
       const isSelected = place.id === selectedLocationId;
       const locMarker = L.marker([place.lat, place.lon], {
@@ -692,8 +720,14 @@ export function startProximity(
       name.textContent = place.name;
       name.title = place.name;
       const dist = document.createElement("span");
-      dist.className = "px-row-dist";
+      dist.className = place.error ? "px-row-dist is-approx" : "px-row-dist";
       dist.textContent = kmLabel || "—";
+      if (place.error) {
+        dist.title =
+          place.error === "no_route"
+            ? `No ${modeLabel(persisted.distanceMode)} route found · straight-line estimate`
+            : "Routing service unavailable · straight-line estimate";
+      }
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "px-row-remove";
@@ -751,14 +785,20 @@ export function startProximity(
       hint.textContent = `Fetching ${modeLabel(persisted.distanceMode)} routes…`;
     } else if (selected) {
       const label = Number.isFinite(selected.km)
-        ? `${selected.name} · ${formatDistance(selected.km)}`
+        ? `${selected.name} · ${selected.error ? "≈ " : ""}${formatDistance(selected.km)}`
         : selected.name;
       hint.textContent = `Highlighted: ${label} · click again to clear`;
     } else if (dest) {
+      const approx = ranked.filter((place) => place.error).length;
+      const label = modeLabel(persisted.distanceMode);
       hint.textContent =
         persisted.distanceMode === "straight"
           ? "Click a location or path to highlight"
-          : `Showing ${modeLabel(persisted.distanceMode)} routes · click to highlight`;
+          : approx === 0
+            ? `Showing ${label} routes · click to highlight`
+            : approx === ranked.length
+              ? `${label.charAt(0).toUpperCase()}${label.slice(1)} routing unavailable · showing straight-line distances`
+              : `Showing ${label} routes · ${approx} of ${ranked.length} fell back to straight-line`;
     } else {
       hint.textContent = "Click the map to set a destination";
     }

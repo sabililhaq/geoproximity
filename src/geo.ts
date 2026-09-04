@@ -34,10 +34,13 @@ export function withDistance<T extends Coord>(
 		.sort((a, b) => a.km - b.km);
 }
 
+export type RouteError = 'network' | 'no_route' | 'unknown';
+
 export type RouteResult = {
 	km: number;
 	geometry?: Array<[number, number]>;
-	error?: 'network' | 'no_route' | 'unknown';
+	/** Set when routing failed and `km` is a straight-line fallback. */
+	error?: RouteError;
 };
 
 export async function getNetworkDistance(
@@ -95,11 +98,16 @@ export async function withNetworkDistance<T extends Coord>(
 	destination: Coord,
 	mode: 'driving' | 'walking' = 'driving',
 	signal?: AbortSignal,
-): Promise<Array<T & { km: number; geometry?: Array<[number, number]> }>> {
+): Promise<Array<T & { km: number; geometry?: Array<[number, number]>; error?: RouteError }>> {
 	const routes = await Promise.all(
 		items.map((item) => getNetworkDistance(item, destination, mode, signal)),
 	);
 	return items
-		.map((item, i) => ({ ...item, km: routes[i].km, geometry: routes[i].geometry }))
+		.map((item, i) => ({
+			...item,
+			km: routes[i].km,
+			geometry: routes[i].geometry,
+			error: routes[i].error,
+		}))
 		.sort((a, b) => a.km - b.km);
 }

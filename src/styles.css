@@ -402,6 +402,11 @@
 	white-space: nowrap;
 }
 
+.px-row-dist.is-approx {
+	font-style: italic;
+	cursor: help;
+}
+
 .px-actions {
 	flex-shrink: 0;
 	display: flex;
@@ -831,6 +836,16 @@
 	.px-sidebar-body::-webkit-scrollbar-thumb {
 		background: rgba(0, 0, 0, 0.18);
 		border-radius: 999px;
+	}
+
+	/* Let the sheet scroll as one column so the ranked list can never collapse to 0px. */
+	.px-section:last-child {
+		flex: none;
+	}
+
+	.px-list {
+		flex: none;
+		overflow: visible;
 	}
 
 	.px-actions {
