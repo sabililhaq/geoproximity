@@ -20,7 +20,7 @@
 	--px-sidebar-w: 320px;
 	display: grid;
 	grid-template-areas: 'map' 'divider' 'aside';
-	grid-template-rows: minmax(0, 1fr) 6px minmax(320px, var(--px-sidebar-h));
+	grid-template-rows: minmax(270px, 52vh) 6px minmax(0, 1fr);
 	height: 100%;
 	min-height: 0;
 	width: 100%;
@@ -29,6 +29,23 @@
 	font-family: var(--font-atkinson, inherit);
 	font-size: 15px;
 	line-height: 1.45;
+}
+
+@media (min-width: 820px) {
+	.px-layout {
+		grid-template-areas: 'aside divider map';
+		grid-template-columns: minmax(280px, var(--px-sidebar-w)) 6px minmax(0, 1fr);
+		grid-template-rows: 100%;
+	}
+
+	.px-sidebar {
+		border-top: 0;
+		border-right: 1px solid var(--px-border);
+	}
+
+	.px-map-wrap {
+		grid-area: map;
+	}
 }
 
 [data-proximity] *,
@@ -256,6 +273,13 @@
 	font-size: 0.8rem;
 	padding: 0.4rem 0.65rem;
 	cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+[role="button"]:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
 }
 
 .px-btn-row button:hover,

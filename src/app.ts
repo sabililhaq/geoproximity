@@ -952,11 +952,48 @@ export function startProximity(
   }
 
   if (options.share) {
+    shareBtn.setAttribute("aria-label", "Share this comparison");
     shareBtn.addEventListener(
       "click",
       async () => {
+        const url = window.location.href;
+
         try {
-          await navigator.clipboard.writeText(window.location.href);
+          if (navigator.share) {
+            try {
+              await navigator.share({
+                title: "Proximity",
+                text: "Compare destinations by proximity.",
+                url,
+              });
+              showStatus("Share sheet opened.");
+              return;
+            } catch (error) {
+              if (
+                error instanceof DOMException &&
+                error.name === "AbortError"
+              ) {
+                showStatus("Share cancelled.");
+                return;
+              }
+            }
+          }
+
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(url);
+            showStatus("Link copied to clipboard.");
+            return;
+          }
+
+          const temp = document.createElement("textarea");
+          temp.value = url;
+          temp.setAttribute("readonly", "true");
+          temp.style.position = "fixed";
+          temp.style.top = "-9999px";
+          document.body.append(temp);
+          temp.select();
+          document.execCommand("copy");
+          temp.remove();
           showStatus("Link copied to clipboard.");
         } catch {
           showStatus("Could not copy link.");
