@@ -56,7 +56,7 @@ export const proximityMarkup = `
 						<input id="px-loc-input" data-loc-input type="search" placeholder="Add a city or place" autocomplete="off" enterkeyhint="search" data-input-mode="search" />
 						<div data-loc-results class="px-results" hidden></div>
 					</form>
-					<p data-loc-empty class="px-list-empty">Search a place, or click the map.</p>
+					<p data-loc-empty class="px-list-empty">Search a place or click the map to add a comparison location.</p>
 					<ul data-loc-list class="px-list" hidden></ul>
 				</section>
 			</div>
@@ -87,7 +87,15 @@ export const proximityMarkup = `
 			<div data-px-map class="px-map" role="application" aria-label="Proximity map"></div>
 			<p data-px-hint class="px-hint" hidden>Click the map to set a destination</p>
 			<div data-px-empty class="px-map-empty">
-				<p>Choose a destination, then add travel locations to compare distance. Try the sample to see it in action.</p>
+				<div class="px-empty-guide" aria-label="How to use Proximity">
+					<strong>Start here</strong>
+					<ol>
+						<li>Set a destination</li>
+						<li>Add locations to compare</li>
+						<li>Pick a route mode</li>
+					</ol>
+				</div>
+				<p>Search for a place, enter coordinates, or click the map to begin.</p>
 				<button type="button" data-sample title="Sample">
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; vertical-align: text-bottom;"><path d="m21.64 3.68-1.31-1.31c-.98-.98-2.58-.98-3.56 0L3.68 15.46c-.39.39-.68.88-.84 1.41L2 22l5.13-.84c.53-.16 1.02-.45 1.41-.84l13.09-13.09c.98-.98.98-2.58 0-3.56Z"></path></svg>
 					Sample

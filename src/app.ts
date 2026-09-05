@@ -1,10 +1,13 @@
 import L from "leaflet";
-import { formatDistance, samePlace, withDistance, withNetworkDistance, type RouteError } from "./geo";
-import { reverseGeocode, searchPlaces, type GeocodeHit } from "./geocoder";
 import {
-  parseProximityJson,
-  type ProximityFile,
-} from "./io";
+  formatDistance,
+  samePlace,
+  withDistance,
+  withNetworkDistance,
+  type RouteError,
+} from "./geo";
+import { reverseGeocode, searchPlaces, type GeocodeHit } from "./geocoder";
+import { parseProximityJson, type ProximityFile } from "./io";
 import { encodeShareHash, readShareHash } from "./share";
 import sampleProximity from "./sample-proximity.json";
 import { cartoTileUrl, resolveCartoApiKey } from "./basemap";
@@ -141,8 +144,8 @@ function bindSearch(
       return;
     }
 
-    const mode = input.getAttribute('data-input-mode') || 'search';
-    if (mode === 'coords') {
+    const mode = input.getAttribute("data-input-mode") || "search";
+    if (mode === "coords") {
       const coords = parseCoordinates(query);
       if (coords) {
         const name = `${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}`;
@@ -152,14 +155,14 @@ function bindSearch(
           lat: coords.lat,
           lon: coords.lon,
         });
-        input.value = '';
+        input.value = "";
         hide();
         return;
       } else {
         results.replaceChildren();
-        const error = document.createElement('div');
-        error.className = 'px-empty';
-        error.textContent = 'Invalid coordinates. Use format: lat, lon';
+        const error = document.createElement("div");
+        error.className = "px-empty";
+        error.textContent = "Invalid coordinates. Use format: lat, lon";
         results.append(error);
         results.hidden = false;
         return;
@@ -206,21 +209,24 @@ function bindSearch(
   input.addEventListener(
     "keydown",
     (e) => {
-      const items = results.querySelectorAll('.px-hit');
+      const items = results.querySelectorAll(".px-hit");
       if (items.length === 0) return;
 
       switch (e.key) {
-        case 'ArrowDown':
+        case "ArrowDown":
           e.preventDefault();
-          selectedResultIndex = Math.min(selectedResultIndex + 1, items.length - 1);
+          selectedResultIndex = Math.min(
+            selectedResultIndex + 1,
+            items.length - 1,
+          );
           updateResultHighlight();
           break;
-        case 'ArrowUp':
+        case "ArrowUp":
           e.preventDefault();
           selectedResultIndex = Math.max(selectedResultIndex - 1, -1);
           updateResultHighlight();
           break;
-        case 'Enter':
+        case "Enter":
           e.preventDefault();
           if (selectedResultIndex >= 0) {
             (items[selectedResultIndex] as HTMLElement).click();
@@ -234,29 +240,38 @@ function bindSearch(
   );
 
   const updateResultHighlight = () => {
-    const items = results.querySelectorAll('.px-hit');
+    const items = results.querySelectorAll(".px-hit");
     items.forEach((item, i) => {
-      item.classList.toggle('is-keyboard-focused', i === selectedResultIndex);
+      item.classList.toggle("is-keyboard-focused", i === selectedResultIndex);
     });
     if (selectedResultIndex >= 0) {
-      (items[selectedResultIndex] as HTMLElement).scrollIntoView({ block: 'nearest' });
+      (items[selectedResultIndex] as HTMLElement).scrollIntoView({
+        block: "nearest",
+      });
     }
   };
 
-  const modeRadios = form.parentElement?.querySelectorAll('input[type="radio"]');
+  const modeRadios = form.parentElement?.querySelectorAll(
+    'input[type="radio"]',
+  );
   if (modeRadios) {
     for (const radio of modeRadios) {
-      radio.addEventListener('change', () => {
-        const newMode = (radio as HTMLInputElement).value;
-        input.setAttribute('data-input-mode', newMode);
-        input.placeholder = newMode === 'coords'
-          ? 'e.g., 48.8566, 2.3522'
-          : input.placeholder.includes('destination')
-            ? 'Search a destination'
-            : 'Add a city or place';
-        input.value = '';
-        hide();
-      }, { signal });
+      radio.addEventListener(
+        "change",
+        () => {
+          const newMode = (radio as HTMLInputElement).value;
+          input.setAttribute("data-input-mode", newMode);
+          input.placeholder =
+            newMode === "coords"
+              ? "e.g., 48.8566, 2.3522"
+              : input.placeholder.includes("destination")
+                ? "Search a destination"
+                : "Add a city or place";
+          input.value = "";
+          hide();
+        },
+        { signal },
+      );
     }
   }
 
@@ -308,6 +323,7 @@ export function startProximity(
   let isLoadingDistances = false;
   let selectedLocationId: string | null = null;
   let keyboardFocusedRowId: string | null = null;
+  let currentRanked: RankedPlace[] = [];
   let distanceAbort: AbortController | null = null;
   shareBtn.hidden = !options.share;
 
@@ -323,7 +339,9 @@ export function startProximity(
     layer.on("tileerror", () => {
       if (tileErrorShown) return;
       tileErrorShown = true;
-      showStatus("Map tiles failed to load · check your connection or CARTO key");
+      showStatus(
+        "Map tiles failed to load · check your connection or CARTO key",
+      );
     });
     layer.on("load", () => {
       tileErrorShown = false;
@@ -350,35 +368,37 @@ export function startProximity(
     let isVertical = true;
     let startPos = 0;
     let startSize = 0;
-    
-    resizer.addEventListener('pointerdown', (e) => {
+
+    resizer.addEventListener("pointerdown", (e) => {
       isDragging = true;
       resizer.setPointerCapture(e.pointerId);
-      isVertical = getComputedStyle(resizer).cursor === 'row-resize';
+      isVertical = getComputedStyle(resizer).cursor === "row-resize";
       startPos = isVertical ? e.clientY : e.clientX;
-      startSize = isVertical 
-        ? layout.querySelector('.px-sidebar')?.getBoundingClientRect().height || 0
-        : layout.querySelector('.px-sidebar')?.getBoundingClientRect().width || 0;
+      startSize = isVertical
+        ? layout.querySelector(".px-sidebar")?.getBoundingClientRect().height ||
+          0
+        : layout.querySelector(".px-sidebar")?.getBoundingClientRect().width ||
+          0;
       e.preventDefault();
     });
 
-    resizer.addEventListener('pointermove', (e) => {
+    resizer.addEventListener("pointermove", (e) => {
       if (!isDragging) return;
-      const delta = isVertical ? (startPos - e.clientY) : (e.clientX - startPos);
+      const delta = isVertical ? startPos - e.clientY : e.clientX - startPos;
       const newSize = Math.max(200, startSize + delta);
       if (isVertical) {
-        layout.style.setProperty('--px-sidebar-h', `${newSize}px`);
+        layout.style.setProperty("--px-sidebar-h", `${newSize}px`);
       } else {
-        layout.style.setProperty('--px-sidebar-w', `${newSize}px`);
+        layout.style.setProperty("--px-sidebar-w", `${newSize}px`);
       }
       map.invalidateSize();
     });
 
-    resizer.addEventListener('pointerup', (e) => {
+    resizer.addEventListener("pointerup", (e) => {
       isDragging = false;
       resizer.releasePointerCapture(e.pointerId);
     });
-    resizer.addEventListener('pointercancel', (e) => {
+    resizer.addEventListener("pointercancel", (e) => {
       isDragging = false;
       resizer.releasePointerCapture(e.pointerId);
     });
@@ -386,10 +406,7 @@ export function startProximity(
 
   resize.observe(host);
 
-  function focusRowByIndex(
-    index: number,
-    ranked: RankedPlace[],
-  ) {
+  function focusRowByIndex(index: number, ranked: RankedPlace[]) {
     if (index < 0 || index >= ranked.length) return;
     const place = ranked[index];
     keyboardFocusedRowId = place.id;
@@ -403,28 +420,28 @@ export function startProximity(
     const currentIndex = ranked.findIndex((p) => p.id === keyboardFocusedRowId);
 
     switch (event.key) {
-      case 'ArrowDown':
+      case "ArrowDown":
         event.preventDefault();
         focusRowByIndex(currentIndex + 1, ranked);
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         event.preventDefault();
         focusRowByIndex(currentIndex - 1, ranked);
         break;
-      case 'Enter':
+      case "Enter":
         event.preventDefault();
         if (keyboardFocusedRowId) {
           selectLocation(keyboardFocusedRowId, ranked, { fit: true });
         }
         break;
-      case 'Escape':
+      case "Escape":
         event.preventDefault();
         keyboardFocusedRowId = null;
         selectedLocationId = null;
         render();
         break;
-      case 'Backspace':
-      case 'Delete':
+      case "Backspace":
+      case "Delete":
         event.preventDefault();
         if (keyboardFocusedRowId) {
           persisted.locations = persisted.locations.filter(
@@ -434,11 +451,11 @@ export function startProximity(
           render();
         }
         break;
-      case 'Home':
+      case "Home":
         event.preventDefault();
         focusRowByIndex(0, ranked);
         break;
-      case 'End':
+      case "End":
         event.preventDefault();
         focusRowByIndex(ranked.length - 1, ranked);
         break;
@@ -452,7 +469,9 @@ export function startProximity(
     return withDistance(persisted.locations, persisted.destination);
   }
 
-  async function rankedLocationsAsync(signal: AbortSignal): Promise<RankedPlace[]> {
+  async function rankedLocationsAsync(
+    signal: AbortSignal,
+  ): Promise<RankedPlace[]> {
     if (!persisted.destination) {
       return persisted.locations.map((place) => ({ ...place, km: Number.NaN }));
     }
@@ -578,10 +597,19 @@ export function startProximity(
     });
   }
 
+  locList.addEventListener(
+    "keydown",
+    (e) => {
+      handleLocationListKeyboard(e, currentRanked);
+    },
+    { signal: session.signal },
+  );
+
   function doRender(
     ranked: RankedPlace[],
     renderOpts?: { fitSelection?: boolean },
   ) {
+    currentRanked = ranked;
     const dest = persisted.destination;
     const color = accentColor();
 
@@ -767,10 +795,6 @@ export function startProximity(
     }
 
     if (selectedPolyline) selectedPolyline.bringToFront();
-
-    locList.addEventListener("keydown", (e) => {
-      handleLocationListKeyboard(e, ranked);
-    });
 
     if (renderOpts?.fitSelection && selectedLocationId && dest) {
       const selected = ranked.find((place) => place.id === selectedLocationId);
@@ -985,9 +1009,7 @@ export function startProximity(
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         const input =
-          document.activeElement?.id === "px-dest-input"
-            ? locInput
-            : destInput;
+          document.activeElement?.id === "px-dest-input" ? locInput : destInput;
         input.focus();
         input.select();
       }

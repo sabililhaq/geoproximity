@@ -558,6 +558,35 @@
 	margin: 0;
 }
 
+.px-empty-guide {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	width: 100%;
+	padding: 0.55rem 0.65rem;
+	border: 1px solid var(--px-border);
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--px-wash) 80%, transparent);
+	color: var(--px-title);
+}
+
+.px-empty-guide strong {
+	font-size: 0.83rem;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.px-empty-guide ol {
+	margin: 0;
+	padding-left: 1.1rem;
+	text-align: left;
+	color: var(--px-muted);
+}
+
+.px-empty-guide li + li {
+	margin-top: 0.2rem;
+}
+
 .px-map-empty button {
 	pointer-events: auto;
 	background: var(--px-wash);

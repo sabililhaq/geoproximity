@@ -39,4 +39,12 @@ describe("mount sample option", () => {
     const demo = readFileSync(demoPath, "utf-8");
     expect(demo).toContain("sample: true");
   });
+
+  it("binds the list keyboard shortcut once and reuses the latest ranked data", () => {
+    const app = readFileSync(appPath, "utf-8");
+
+    expect(app).toContain("let currentRanked: RankedPlace[] = [];");
+    expect(app).toContain("currentRanked = ranked;");
+    expect(app).toContain("handleLocationListKeyboard(e, currentRanked);");
+  });
 });
