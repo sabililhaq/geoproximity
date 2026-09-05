@@ -2,13 +2,8 @@ export const proximityMarkup = `
 <div data-proximity>
 	<div class="px-layout">
 		<aside class="px-sidebar">
-			<div class="px-sidebar-head">
-				<h1>Proximity</h1>
-				<p>How far are travel locations from a destination?</p>
-				<p data-io-status class="px-io-status" role="status" aria-live="polite" hidden></p>
-			</div>
-
 			<div class="px-sidebar-body">
+				<p data-io-status class="px-io-status" role="status" aria-live="polite" hidden></p>
 				<div class="px-route-row">
 					<div class="px-seg" role="group" aria-label="Distance method">
 						<button type="button" data-route-mode="straight" aria-pressed="true">Straight line</button>

@@ -78,22 +78,14 @@
 	min-width: 0;
 }
 
-.px-sidebar-head {
-	flex-shrink: 0;
-	padding: 0.9rem 1rem 0.7rem;
-	border-bottom: 1px solid var(--px-border);
+.px-sidebar-body {
+	padding-top: 0.7rem;
 }
 
-.px-sidebar-head h1 {
-	font-size: 1.15rem;
-	letter-spacing: -0.02em;
-	color: var(--px-title);
-}
-
-.px-sidebar-head p {
-	margin-top: 0.2rem;
+.px-io-status {
+	margin: 0 0 0.35rem;
 	color: var(--px-muted);
-	font-size: 0.82rem;
+	font-size: 0.78rem;
 }
 
 .px-io-row button {
@@ -114,7 +106,7 @@
 }
 
 .px-sidebar-head .px-io-status {
-	margin-top: 0.35rem;
+	margin-top: 0;
 }
 
 .px-sidebar-body {
