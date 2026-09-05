@@ -319,6 +319,20 @@ export function startProximity(
   const routeModeButtons = Array.from(
     root.querySelectorAll<HTMLButtonElement>("[data-route-mode]"),
   );
+  const routeAnimationToggle = qs<HTMLButtonElement>(
+    root,
+    "[data-route-animation]",
+  );
+  const routeAnimationHelp = qs(root, "[data-route-animation-help]");
+  const routeAnimationReverseToggle = qs<HTMLButtonElement>(
+    root,
+    "[data-route-animation-reverse]",
+  );
+  const routeAnimationReverseHelp = qs(
+    root,
+    "[data-route-animation-reverse-help]",
+  );
+  const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   let statusTimer = 0;
   let isLoadingDistances = false;
   let selectedLocationId: string | null = null;
@@ -510,6 +524,79 @@ export function startProximity(
     return "straight-line";
   }
 
+  function switchOn(button: HTMLButtonElement): boolean {
+    return button.getAttribute("aria-checked") === "true";
+  }
+
+  function setSwitchOn(button: HTMLButtonElement, on: boolean) {
+    button.setAttribute("aria-checked", on ? "true" : "false");
+  }
+
+  function setSwitchUnavailable(
+    button: HTMLButtonElement,
+    unavailable: boolean,
+    help: HTMLElement,
+    description: string,
+  ) {
+    button.setAttribute("aria-disabled", unavailable ? "true" : "false");
+    button.title = description;
+    help.textContent = description;
+  }
+
+  function applyRouteAnimation() {
+    const routed = persisted.distanceMode !== "straight";
+    const reduced = motionQuery.matches;
+    const animateOn = switchOn(routeAnimationToggle);
+    const reverseOn = switchOn(routeAnimationReverseToggle);
+    const animating = routed && animateOn && !reduced;
+    const reducedHelp =
+      "Unavailable because your system prefers reduced motion.";
+    if (reduced) {
+      setSwitchUnavailable(
+        routeAnimationToggle,
+        true,
+        routeAnimationHelp,
+        reducedHelp,
+      );
+      setSwitchUnavailable(
+        routeAnimationReverseToggle,
+        true,
+        routeAnimationReverseHelp,
+        reducedHelp,
+      );
+    } else if (!routed) {
+      setSwitchUnavailable(
+        routeAnimationToggle,
+        true,
+        routeAnimationHelp,
+        "Available for driving and walking routes.",
+      );
+      setSwitchUnavailable(
+        routeAnimationReverseToggle,
+        true,
+        routeAnimationReverseHelp,
+        "Turn on Animate routes to reverse direction. Available for driving and walking routes.",
+      );
+    } else {
+      setSwitchUnavailable(
+        routeAnimationToggle,
+        false,
+        routeAnimationHelp,
+        "Flows dashes along routes from locations toward the destination.",
+      );
+      setSwitchUnavailable(
+        routeAnimationReverseToggle,
+        !animateOn,
+        routeAnimationReverseHelp,
+        animateOn
+          ? "Flows dashes from the destination toward locations."
+          : "Turn on Animate routes to reverse direction.",
+      );
+    }
+    host.classList.toggle("px-animate-routes", animating);
+    host.classList.toggle("px-animate-routes-reverse", animating && reverseOn);
+  }
+
   function render() {
     if (persisted.distanceMode !== "straight") {
       void renderAsync();
@@ -626,6 +713,7 @@ export function startProximity(
         btn.dataset.routeMode === persisted.distanceMode ? "true" : "false",
       );
     }
+    applyRouteAnimation();
 
     overlay.clearLayers();
     const markers = new Map<string, L.Marker>();
@@ -704,6 +792,7 @@ export function startProximity(
             ];
         const dashArray = place.geometry ? undefined : "6 6";
         const dimmed = hasSelection && !isSelected;
+        const routedClass = place.geometry ? " px-edge-routed" : "";
         if (isSelected) {
           L.polyline(latlngs, {
             color,
@@ -720,10 +809,10 @@ export function startProximity(
           opacity: isSelected ? 1 : dimmed ? 0.18 : 0.45,
           dashArray,
           className: isSelected
-            ? "px-edge px-edge-highlight"
+            ? `px-edge${routedClass} px-edge-highlight`
             : dimmed
-              ? "px-edge px-edge-dim"
-              : "px-edge",
+              ? `px-edge${routedClass} px-edge-dim`
+              : `px-edge${routedClass}`,
           interactive: true,
         })
           .on("click", (event) => {
@@ -1029,6 +1118,30 @@ export function startProximity(
       { signal: session.signal },
     );
   }
+
+  function onAnimationSwitchClick(button: HTMLButtonElement) {
+    if (button.getAttribute("aria-disabled") === "true") return;
+    setSwitchOn(button, !switchOn(button));
+    applyRouteAnimation();
+  }
+
+  routeAnimationToggle.addEventListener(
+    "click",
+    () => {
+      onAnimationSwitchClick(routeAnimationToggle);
+    },
+    { signal: session.signal },
+  );
+  routeAnimationReverseToggle.addEventListener(
+    "click",
+    () => {
+      onAnimationSwitchClick(routeAnimationReverseToggle);
+    },
+    { signal: session.signal },
+  );
+  motionQuery.addEventListener("change", applyRouteAnimation, {
+    signal: session.signal,
+  });
 
   map.on("click", (event: L.LeafletMouseEvent) => {
     const { lat, lng } = event.latlng;

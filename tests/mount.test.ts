@@ -47,4 +47,16 @@ describe("mount sample option", () => {
     expect(app).toContain("currentRanked = ranked;");
     expect(app).toContain("handleLocationListKeyboard(e, currentRanked);");
   });
+
+  it("toggles route animation with a host class instead of rebuilding the overlay", () => {
+    const app = readFileSync(appPath, "utf-8");
+
+    expect(app).toContain("px-animate-routes");
+    expect(app).toContain("px-animate-routes-reverse");
+    expect(app).toContain("px-edge-routed");
+    expect(app).toContain("prefers-reduced-motion");
+    expect(app).toContain('aria-disabled');
+    expect(app).toContain("aria-checked");
+    expect(app).not.toContain("doRender(currentRanked)");
+  });
 });

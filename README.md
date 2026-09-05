@@ -101,11 +101,13 @@ The map and geocoding functionality may still depend on external services.
 
 ## Distance
 
-The current ranking uses **great-circle distance** between coordinates.
+Geoproximity supports three distance modes:
 
-This represents geographic, straight-line distance — **not driving or walking distance**.
+* **Straight line** — great-circle distance calculated locally from the coordinates
+* **Driving** — road distance returned by the OSRM routing service
+* **Walking** — walking route distance returned by the OSRM routing service
 
-Future versions may support network-based distance, where locations are connected through a road or other geographic network.
+Driving and walking modes also draw the returned route geometry on the map. **Advanced settings** holds an **Animate routes** switch that flows dashes along those routes, and **Reverse direction** to run the flow from destination toward locations instead. Both are unavailable for straight-line distance and stay off when the system prefers reduced motion. Routing requests run in the browser, so they depend on the external routing service and may fall back to straight-line estimates when a route cannot be fetched.
 
 ## Limitations
 
@@ -125,9 +127,9 @@ The distance ranking itself only considers distance. It does not account for tra
 
 ### Proximity
 
-* [ ] Network-based distance
+* [x] Network-based driving and walking distance
 * [ ] Dijkstra-based routing
-* [ ] Animated connections
+* [x] Animated connections
 * [ ] Optional map-less view showing only nodes and connections
 * [ ] Improve location coverage and accuracy
 * [ ] Better handling and messaging around external service limits

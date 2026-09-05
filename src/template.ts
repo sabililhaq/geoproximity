@@ -11,6 +11,21 @@ export const proximityMarkup = `
 						<button type="button" data-route-mode="walking" aria-pressed="false">Walking</button>
 					</div>
 				</div>
+				<details class="px-advanced">
+					<summary>Advanced settings</summary>
+					<div class="px-advanced-body" role="group" aria-label="Route animation">
+						<button type="button" class="px-toggle" data-route-animation role="switch" aria-checked="true" aria-describedby="px-anim-help">
+							<span>Animate routes</span>
+							<span class="px-switch" aria-hidden="true"></span>
+						</button>
+						<p id="px-anim-help" class="px-sr" data-route-animation-help>Flows dashes along driving and walking routes from locations toward the destination.</p>
+						<button type="button" class="px-toggle" data-route-animation-reverse role="switch" aria-checked="false" aria-describedby="px-anim-reverse-help">
+							<span>Reverse direction</span>
+							<span class="px-switch" aria-hidden="true"></span>
+						</button>
+						<p id="px-anim-reverse-help" class="px-sr" data-route-animation-reverse-help>When on, dashes flow from the destination toward locations. Requires Animate routes.</p>
+					</div>
+				</details>
 				<section class="px-section">
 					<h2>Destination</h2>
 					<div class="px-search-mode">
@@ -35,7 +50,7 @@ export const proximityMarkup = `
 				</section>
 
 				<section class="px-section">
-					<h2>transport hub locations</h2>
+					<h2>Locations</h2>
 					<div class="px-search-mode">
 						<label>
 							<input type="radio" name="loc-mode" value="search" checked />

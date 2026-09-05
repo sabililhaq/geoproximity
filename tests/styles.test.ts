@@ -19,6 +19,14 @@ describe("proximity control panel surfaces", () => {
     expect(css).toMatch(/\.px-row \{[\s\S]*?background: var\(--px-fill\);/);
     expect(css).toMatch(/\.px-seg \{[\s\S]*?background: var\(--px-fill\);/);
     expect(css).toMatch(
+      /\.px-advanced \{[\s\S]*?border-bottom: 1px solid var\(--px-border\);/,
+    );
+    expect(css).toMatch(/\.px-toggle \{[\s\S]*?align-items: center;/);
+    expect(css).toMatch(/summary:focus-visible,/);
+    expect(css).toMatch(/\.px-toggle\[aria-checked="true"\] \.px-switch \{/);
+    expect(css).toMatch(/\.px-toggle\[aria-disabled="true"\] \{/);
+    expect(css).toMatch(/\.px-switch \{[\s\S]*?border-radius: 999px;/);
+    expect(css).toMatch(
       /\.px-map-empty button \{[\s\S]*?background: var\(--px-wash\);/,
     );
   });
@@ -37,6 +45,16 @@ describe("proximity control panel surfaces", () => {
 
   it("styles route highlight and selected location row", () => {
     expect(css).toMatch(/\.px-row\.is-selected \{/);
+    expect(css).toMatch(
+      /\[data-proximity\]\.px-animate-routes \.px-edge-routed \{[\s\S]*?animation: px-route-flow 900ms linear infinite;/,
+    );
+    expect(css).toMatch(/@keyframes px-route-flow/);
+    expect(css).toMatch(
+      /\[data-proximity\]\.px-animate-routes-reverse \.px-edge-routed \{[\s\S]*?animation-direction: reverse;/,
+    );
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?animation: none;/,
+    );
     expect(css).toMatch(/\.px-edge-highlight \{/);
     expect(css).toMatch(/\.px-edge-halo \{/);
     expect(css).toMatch(/\.px-marker-num\.is-selected \{/);
