@@ -420,6 +420,38 @@ export function startProximity(
 
   resize.observe(host);
 
+  const visualViewport = window.visualViewport;
+  const syncKeyboardViewport = () => {
+    if (!visualViewport) return;
+    const keyboardOpen = visualViewport.height < window.innerHeight - 120;
+    host.classList.toggle("is-keyboard-open", keyboardOpen);
+    if (keyboardOpen) {
+      host.style.height = `${Math.max(1, visualViewport.height)}px`;
+    } else {
+      host.style.removeProperty("height");
+    }
+    map.invalidateSize();
+  };
+  if (visualViewport) {
+    visualViewport.addEventListener("resize", syncKeyboardViewport, {
+      signal: session.signal,
+    });
+    visualViewport.addEventListener("scroll", syncKeyboardViewport, {
+      signal: session.signal,
+    });
+  }
+  host.addEventListener(
+    "focusin",
+    (event) => {
+      if (!(event.target instanceof HTMLInputElement)) return;
+      window.setTimeout(() => {
+        syncKeyboardViewport();
+        event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }, 80);
+    },
+    { signal: session.signal },
+  );
+
   function focusRowByIndex(index: number, ranked: RankedPlace[]) {
     if (index < 0 || index >= ranked.length) return;
     const place = ranked[index];
