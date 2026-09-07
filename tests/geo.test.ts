@@ -136,15 +136,25 @@ describe('withNetworkDistance', () => {
 	});
 
 	it('reuses a cached route for the same mode and pair', async () => {
-		const fetchMock = vi.fn(async () =>
-			new Response(
+		const fetchMock = vi.fn(async (url: string) => {
+			if (String(url).includes('/table/')) {
+				return new Response(
+					JSON.stringify({
+						code: 'Ok',
+						distances: [[1000]],
+						durations: [[120]],
+					}),
+					{ status: 200 },
+				);
+			}
+			return new Response(
 				JSON.stringify({
 					code: 'Ok',
 					routes: [{ distance: 1000, duration: 120, geometry: { type: 'LineString', coordinates: [] } }],
 				}),
 				{ status: 200 },
-			),
-		);
+			);
+		});
 		vi.stubGlobal('fetch', fetchMock);
 
 		await withNetworkDistance([{ id: 'london', ...london }], paris, 'driving');
@@ -153,5 +163,35 @@ describe('withNetworkDistance', () => {
 
 		await withNetworkDistance([{ id: 'london', ...london }], paris, 'walking');
 		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it('ranks N locations with one table request', async () => {
+		const fetchMock = vi.fn(async (url: string) => {
+			expect(String(url)).toContain('/table/v1/driving/');
+			expect(String(url)).toContain('annotations=duration,distance');
+			return new Response(
+				JSON.stringify({
+					code: 'Ok',
+					distances: [[344_000], [5_850_000]],
+					durations: [[14_400], [216_000]],
+				}),
+				{ status: 200 },
+			);
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		const ranked = await withNetworkDistance(
+			[
+				{ id: 'london', ...london },
+				{ id: 'nyc', ...nyc },
+			],
+			paris,
+			'driving',
+		);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(ranked.map((item) => item.id)).toEqual(['london', 'nyc']);
+		expect(ranked[0]!.km).toBe(344);
+		expect(ranked[0]!.durationSec).toBe(14_400);
+		expect(ranked[0]!.geometry).toBeUndefined();
 	});
 });

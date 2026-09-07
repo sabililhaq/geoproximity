@@ -82,7 +82,8 @@ export async function getNetworkDistance(
 ): Promise<RouteResult> {
 	const key = routeCacheKey(mode, a, b);
 	const cached = routeCache.get(key);
-	if (cached) return cached;
+	// Metrics-only table hits have no geometry; fall through so /route can fill it in.
+	if (cached && (cached.geometry || cached.error)) return cached;
 
 	const store = (result: RouteResult): RouteResult => {
 		if (!signal?.aborted) routeCache.set(key, result);
@@ -145,24 +146,96 @@ export async function getNetworkDistance(
 	}
 }
 
+type RankedRoute<T> = T & {
+	km: number;
+	durationSec?: number;
+	geometry?: Array<[number, number]>;
+	error?: RouteError;
+};
+
+async function fetchDistanceTable<T extends Coord>(
+	items: T[],
+	destination: Coord,
+	mode: 'driving' | 'walking',
+	signal?: AbortSignal,
+): Promise<RankedRoute<T>[] | null> {
+	if (items.length === 0) return [];
+	const coords = [destination, ...items].map((c) => `${c.lon},${c.lat}`).join(';');
+	const sources = items.map((_, i) => i + 1).join(';');
+	const url = `https://router.project-osrm.org/table/v1/${mode}/${coords}?annotations=duration,distance&sources=${sources}&destinations=0`;
+
+	try {
+		const response = await fetch(url, { signal });
+		if (!response.ok) {
+			console.warn(`OSRM table HTTP error: ${response.status}`);
+			return null;
+		}
+		const data = (await response.json()) as {
+			code?: string;
+			durations?: Array<Array<number | null>>;
+			distances?: Array<Array<number | null>>;
+		};
+		if (data.code !== 'Ok' || !Array.isArray(data.durations) || !Array.isArray(data.distances)) {
+			console.warn(`OSRM table error code: ${data.code}`);
+			return null;
+		}
+
+		return items.map((item, i) => {
+			const metres = data.distances?.[i]?.[0];
+			const durationSec = data.durations?.[i]?.[0];
+			if (typeof metres !== 'number' || !Number.isFinite(metres)) {
+				return { ...item, km: distanceKm(item, destination), error: 'no_route' as const };
+			}
+			return {
+				...item,
+				km: metres / 1000,
+				durationSec:
+					typeof durationSec === 'number' && Number.isFinite(durationSec) ? durationSec : undefined,
+			};
+		});
+	} catch (error) {
+		if (isAbortError(error) || signal?.aborted) return null;
+		console.warn('Network error reaching OSRM table:', error);
+		return null;
+	}
+}
+
 export async function withNetworkDistance<T extends Coord>(
 	items: T[],
 	destination: Coord,
 	mode: 'driving' | 'walking' = 'driving',
 	signal?: AbortSignal,
-): Promise<
-	Array<T & { km: number; durationSec?: number; geometry?: Array<[number, number]>; error?: RouteError }>
-> {
-	const routes = await Promise.all(
-		items.map((item) => getNetworkDistance(item, destination, mode, signal)),
-	);
-	return items
-		.map((item, i) => ({
-			...item,
-			km: routes[i].km,
-			durationSec: routes[i].durationSec,
-			geometry: routes[i].geometry,
-			error: routes[i].error,
-		}))
-		.sort((a, b) => a.km - b.km);
+): Promise<RankedRoute<T>[]> {
+	const ready: RankedRoute<T>[] = [];
+	const missing: T[] = [];
+	for (const item of items) {
+		const cached = routeCache.get(routeCacheKey(mode, item, destination));
+		if (cached) ready.push({ ...item, ...cached });
+		else missing.push(item);
+	}
+
+	let fetched: RankedRoute<T>[] = [];
+	if (missing.length > 0) {
+		const table = await fetchDistanceTable(missing, destination, mode, signal);
+		if (table) {
+			fetched = table;
+			for (const row of table) {
+				const key = routeCacheKey(mode, row, destination);
+				if (!routeCache.has(key)) {
+					routeCache.set(key, {
+						km: row.km,
+						durationSec: row.durationSec,
+						error: row.error,
+					});
+				}
+			}
+		} else {
+			const routes = await Promise.all(
+				missing.map((item) => getNetworkDistance(item, destination, mode, signal)),
+			);
+			fetched = missing.map((item, i) => ({ ...item, ...routes[i]! }));
+		}
+	}
+
+	return [...ready, ...fetched].sort((a, b) => a.km - b.km);
 }
