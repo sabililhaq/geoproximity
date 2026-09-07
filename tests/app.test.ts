@@ -33,7 +33,24 @@ function key(target: Element, key: string) {
   );
 }
 
+const storage = new Map<string, string>();
+const localStorageStub: Storage = {
+  get length() {
+    return storage.size;
+  },
+  clear: () => storage.clear(),
+  getItem: (key) => storage.get(key) ?? null,
+  setItem: (key, value) => {
+    storage.set(key, String(value));
+  },
+  removeItem: (key) => {
+    storage.delete(key);
+  },
+  key: (index) => [...storage.keys()][index] ?? null,
+};
+
 beforeAll(() => {
+  vi.stubGlobal("localStorage", localStorageStub);
   // jsdom lacks these browser APIs that the widget touches at mount.
   vi.stubGlobal(
     "ResizeObserver",
@@ -59,6 +76,7 @@ afterEach(() => {
   for (const stop of cleanups.splice(0)) stop();
   document.body.replaceChildren();
   window.location.hash = "";
+  storage.clear();
 });
 
 describe("popup content", () => {
@@ -145,6 +163,26 @@ describe("location list keyboard navigation", () => {
     );
     expect(names).toEqual(["London", "Amsterdam"]); // Brussels ranked first (closest to Paris)
     expect(document.activeElement).toBe(rows(root)[0]);
+  });
+});
+
+describe("localStorage", () => {
+  it("restores the last comparison without a share link", () => {
+    const { root, stop } = mountWithHash({
+      destination: dest,
+      locations: [london],
+    });
+    expect(rows(root)).toHaveLength(1);
+    stop();
+    root.remove();
+    window.location.hash = "";
+
+    const next = document.createElement("div");
+    document.body.append(next);
+    cleanups.push(mountProximity(next, {}));
+    expect(
+      rows(next).map((row) => row.querySelector(".px-row-name")!.textContent),
+    ).toEqual(["London"]);
   });
 });
 

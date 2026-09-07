@@ -12,7 +12,12 @@ import {
 import { reverseGeocode, searchPlaces, type GeocodeHit } from "./geocoder";
 import { parsePlaceInput } from "./parse-place";
 import { parseProximityJson, type ProximityFile } from "./io";
-import { encodeShareHash, readShareHash } from "./share";
+import {
+  encodeShareHash,
+  readShareHash,
+  readStoredState,
+  writeStoredState,
+} from "./share";
 import sampleProximity from "./sample-proximity.json";
 import { cartoTileUrl, resolveCartoApiKey } from "./basemap";
 import type { Place, ProximityState, DistanceMode } from "./types";
@@ -1110,6 +1115,7 @@ export function startProximity(
     if (options.share) {
       window.history.replaceState(null, "", `#${encodeShareHash(state)}`);
     }
+    writeStoredState(state);
 
     const orderKey = `${state.distanceMode}:${rankByTime ? "time" : "km"}:${ranked.map((place) => place.id).join(",")}`;
     if (
@@ -1539,11 +1545,15 @@ export function startProximity(
   );
 
   const shared = options.share ? readShareHash(window.location.hash) : null;
+  const stored = shared ? null : readStoredState();
   if (shared) {
     if (shared.distanceMode) state.distanceMode = shared.distanceMode;
     applyFile(shared);
     const count = shared.locations.length + (shared.destination ? 1 : 0);
     showStatus(`Loaded from shared link · ${count} nodes.`);
+  } else if (stored) {
+    if (stored.distanceMode) state.distanceMode = stored.distanceMode;
+    applyFile(stored);
   } else if (
     options.sample &&
     !state.destination &&

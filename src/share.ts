@@ -101,3 +101,32 @@ export function readShareHash(hash: string): SharedComparison | null {
   if (hash.startsWith("#proximity=")) return readLegacyHash(hash);
   return null;
 }
+
+export const STORAGE_KEY = "geoproximity:v1";
+
+function memoryStorage(): Storage | null {
+  try {
+    const store = globalThis.localStorage;
+    return store ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeStoredState(state: ProximityState): void {
+  try {
+    memoryStorage()?.setItem(STORAGE_KEY, encodeShareHash(state));
+  } catch {
+    /* private mode or quota */
+  }
+}
+
+export function readStoredState(): SharedComparison | null {
+  try {
+    const raw = memoryStorage()?.getItem(STORAGE_KEY);
+    if (raw == null) return null;
+    return readShareHash(`#${raw}`);
+  } catch {
+    return null;
+  }
+}

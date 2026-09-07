@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { encodeShareHash, readShareHash } from "../src/share";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  encodeShareHash,
+  readShareHash,
+  readStoredState,
+  writeStoredState,
+} from "../src/share";
 
 const state = {
   destination: {
@@ -76,5 +81,38 @@ describe("share hash", () => {
     )}`;
 
     expect(readShareHash(hash)).toEqual({ destination: null, locations: [] });
+  });
+});
+
+describe("stored state", () => {
+  const memory = new Map<string, string>();
+  const stub: Storage = {
+    get length() {
+      return memory.size;
+    },
+    clear: () => memory.clear(),
+    getItem: (key) => memory.get(key) ?? null,
+    setItem: (key, value) => {
+      memory.set(key, String(value));
+    },
+    removeItem: (key) => {
+      memory.delete(key);
+    },
+    key: (index) => [...memory.keys()][index] ?? null,
+  };
+
+  afterEach(() => {
+    memory.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it("round-trips through localStorage", () => {
+    vi.stubGlobal("localStorage", stub);
+    writeStoredState(state);
+    expect(readStoredState()).toEqual({
+      destination: { name: "Paris", lat: 48.8566, lon: 2.3522 },
+      locations: [{ name: "London", lat: 51.5074, lon: -0.1278 }],
+      distanceMode: "straight",
+    });
   });
 });
