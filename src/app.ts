@@ -9,9 +9,11 @@ import {
   withNetworkDistance,
   type RouteError,
 } from "./geo";
-import { reverseGeocode, searchPlaces, type GeocodeHit } from "./geocoder";
-import { parsePlaceInput } from "./parse-place";
+import { reverseGeocode } from "./geocoder";
 import { parseProximityJson, type ProximityFile } from "./io";
+import { handleLocationListKeyboard } from "./list-keyboard";
+import { accentColor, destIcon, locIcon, popupContent } from "./markers";
+import { bindSearch } from "./search";
 import {
   encodeShareHash,
   readShareHash,
@@ -58,12 +60,6 @@ function scopeIds(root: HTMLElement): void {
 }
 
 /** Leaflet renders string popup content as HTML; wrap user text in a node. */
-function popupContent(text: string): HTMLElement {
-  const el = document.createElement("span");
-  el.textContent = text;
-  return el;
-}
-
 const maps = new WeakMap<HTMLElement, L.Map>();
 
 export function invalidateProximity(root: HTMLElement): void {
@@ -81,199 +77,6 @@ function qs<T extends HTMLElement>(root: ParentNode, sel: string): T {
 
 const CARTO_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
-
-function accentColor(): string {
-  return (
-    getComputedStyle(document.documentElement)
-      .getPropertyValue("--accent")
-      .trim() || "#007acc"
-  );
-}
-
-function destIcon(): L.DivIcon {
-  return L.divIcon({
-    className: "px-marker",
-    html: '<span class="px-marker-dot"></span>',
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-  });
-}
-
-function locIcon(rank: number, selected = false): L.DivIcon {
-  return L.divIcon({
-    className: "px-marker",
-    html: `<span class="px-marker-num${selected ? " is-selected" : ""}">${rank}</span>`,
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-  });
-}
-
-function bindSearch(
-  root: HTMLElement,
-  input: HTMLInputElement,
-  results: HTMLElement,
-  form: HTMLFormElement,
-  onPick: (place: Place) => void,
-  signal: AbortSignal,
-  getBias?: () => { lat: number; lon: number } | null,
-): void {
-  let timer = 0;
-  let searchAbort: AbortController | null = null;
-  let searchSeq = 0;
-
-  const hide = () => {
-    results.hidden = true;
-    results.replaceChildren();
-  };
-
-  const renderHits = (hits: GeocodeHit[], unavailable = false) => {
-    results.replaceChildren();
-    if (hits.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "px-empty";
-      empty.textContent = unavailable
-        ? "Search is unavailable right now · try pasting coordinates (lat, lon)"
-        : "No results";
-      results.append(empty);
-      results.hidden = false;
-      return;
-    }
-    for (const hit of hits) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "px-hit";
-      btn.textContent = hit.name;
-      btn.addEventListener("click", () => {
-        onPick({
-          id: crypto.randomUUID(),
-          name: hit.shortName || hit.name,
-          lat: hit.lat,
-          lon: hit.lon,
-        });
-        input.value = "";
-        hide();
-      });
-      results.append(btn);
-    }
-    results.hidden = false;
-  };
-
-  let selectedResultIndex = -1;
-
-  const run = async () => {
-    const query = input.value.trim();
-    const seq = ++searchSeq;
-    selectedResultIndex = -1;
-    if (query.length < 2) {
-      hide();
-      return;
-    }
-
-    const coords = parsePlaceInput(query);
-    if (coords) {
-      const name = `${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}`;
-      onPick({
-        id: crypto.randomUUID(),
-        name,
-        lat: coords.lat,
-        lon: coords.lon,
-      });
-      input.value = "";
-      hide();
-      return;
-    }
-
-    searchAbort?.abort();
-    searchAbort = new AbortController();
-    results.hidden = false;
-    results.textContent = "Searching…";
-    const controller = searchAbort;
-    const bias = getBias?.() ?? undefined;
-    const result = await searchPlaces(query, {
-      signal: controller.signal,
-      bias: bias ?? undefined,
-    });
-    if (seq !== searchSeq || controller.signal.aborted) return;
-    renderHits(result.hits, result.unavailable);
-  };
-
-  input.addEventListener(
-    "input",
-    () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => void run(), 400);
-    },
-    { signal },
-  );
-
-  form.addEventListener(
-    "submit",
-    (event) => {
-      event.preventDefault();
-      window.clearTimeout(timer);
-      void run();
-    },
-    { signal },
-  );
-
-  root.addEventListener(
-    "pointerdown",
-    (event) => {
-      if (event.target instanceof Node && !form.contains(event.target)) hide();
-    },
-    { signal },
-  );
-
-  input.addEventListener(
-    "keydown",
-    (e) => {
-      const items = results.querySelectorAll(".px-hit");
-      if (items.length === 0) return;
-
-      switch (e.key) {
-        case "ArrowDown":
-          e.preventDefault();
-          selectedResultIndex = Math.min(
-            selectedResultIndex + 1,
-            items.length - 1,
-          );
-          updateResultHighlight();
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          selectedResultIndex = Math.max(selectedResultIndex - 1, -1);
-          updateResultHighlight();
-          break;
-        case "Enter":
-          e.preventDefault();
-          if (selectedResultIndex >= 0) {
-            (items[selectedResultIndex] as HTMLElement).click();
-          } else {
-            void run();
-          }
-          break;
-      }
-    },
-    { signal },
-  );
-
-  const updateResultHighlight = () => {
-    const items = results.querySelectorAll(".px-hit");
-    items.forEach((item, i) => {
-      item.classList.toggle("is-keyboard-focused", i === selectedResultIndex);
-    });
-    if (selectedResultIndex >= 0) {
-      (items[selectedResultIndex] as HTMLElement).scrollIntoView({
-        block: "nearest",
-      });
-    }
-  };
-
-  signal.addEventListener("abort", () => {
-    window.clearTimeout(timer);
-    searchAbort?.abort();
-  });
-}
 
 export type StartProximityOptions = {
   sample?: boolean | ProximityFile;
@@ -493,44 +296,24 @@ export function startProximity(
     focusRow(place.id);
   }
 
-  function handleLocationListKeyboard(
+  function onLocationListKeydown(
     event: KeyboardEvent,
     ranked: RankedPlace[],
   ) {
-    const currentIndex = ranked.findIndex((p) => p.id === keyboardFocusedRowId);
-
-    switch (event.key) {
-      case "ArrowDown":
-        event.preventDefault();
-        focusRowByIndex(currentIndex + 1, ranked);
-        break;
-      case "ArrowUp":
-        event.preventDefault();
-        focusRowByIndex(currentIndex - 1, ranked);
-        break;
-      case "Enter":
-      case " ":
-        event.preventDefault();
-        if (keyboardFocusedRowId) {
-          selectLocation(keyboardFocusedRowId, ranked, { fit: true });
-          focusRow(keyboardFocusedRowId);
-        }
-        break;
-      case "Escape":
-        event.preventDefault();
+    handleLocationListKeyboard(event, ranked, {
+      focusedId: keyboardFocusedRowId,
+      onMove: (index, list) => focusRowByIndex(index, list),
+      onActivate: (id, list) => {
+        selectLocation(id, list, { fit: true });
+        focusRow(id);
+      },
+      onEscape: () => {
         selectedLocationId = null;
         render();
         focusRow(keyboardFocusedRowId);
-        break;
-      case "Backspace":
-      case "Delete": {
-        event.preventDefault();
-        if (!keyboardFocusedRowId || currentIndex < 0) return;
-        const removedId = keyboardFocusedRowId;
+      },
+      onRemove: (removedId, neighbour) => {
         const removed = state.locations.find((item) => item.id === removedId);
-        // Keep focus in the list: prefer the row that slides into this
-        // slot, else the previous one.
-        const neighbour = ranked[currentIndex + 1] ?? ranked[currentIndex - 1];
         const snap = snapshotState();
         if (selectedLocationId === removedId) selectedLocationId = null;
         state.locations = state.locations.filter(
@@ -540,17 +323,8 @@ export function startProximity(
         render();
         focusRow(keyboardFocusedRowId);
         if (removed) showUndo(`Removed ${removed.name}.`, snap);
-        break;
-      }
-      case "Home":
-        event.preventDefault();
-        focusRowByIndex(0, ranked);
-        break;
-      case "End":
-        event.preventDefault();
-        focusRowByIndex(ranked.length - 1, ranked);
-        break;
-    }
+      },
+    });
   }
 
   function sortRanked(places: RankedPlace[]): RankedPlace[] {
@@ -830,7 +604,7 @@ export function startProximity(
   locList.addEventListener(
     "keydown",
     (e) => {
-      handleLocationListKeyboard(e, currentRanked);
+      onLocationListKeydown(e, currentRanked);
     },
     { signal: session.signal },
   );

@@ -45,7 +45,7 @@ describe("mount sample option", () => {
 
     expect(app).toContain("let currentRanked: RankedPlace[] = [];");
     expect(app).toContain("currentRanked = ranked;");
-    expect(app).toContain("handleLocationListKeyboard(e, currentRanked);");
+    expect(app).toContain("onLocationListKeydown(e, currentRanked);");
   });
 
   it("toggles route animation with a host class instead of rebuilding the overlay", () => {
