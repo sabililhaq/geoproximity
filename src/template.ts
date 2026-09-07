@@ -10,6 +10,10 @@ export const proximityMarkup = `
 						<button type="button" data-route-mode="driving" aria-pressed="false">Driving</button>
 						<button type="button" data-route-mode="walking" aria-pressed="false">Walking</button>
 					</div>
+					<div class="px-seg" role="group" aria-label="Rank by" data-rank-by hidden>
+						<button type="button" data-rank-metric="time" aria-pressed="true">Time</button>
+						<button type="button" data-rank-metric="distance" aria-pressed="false">Distance</button>
+					</div>
 				</div>
 				<details class="px-advanced">
 					<summary>Advanced settings</summary>

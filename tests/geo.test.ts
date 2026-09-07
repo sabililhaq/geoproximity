@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	distanceKm,
 	formatDistance,
+	formatDuration,
 	samePlace,
 	withDistance,
 	withNetworkDistance,
@@ -39,6 +40,16 @@ describe('formatDistance', () => {
 
 	it('rounds larger distances', () => {
 		expect(formatDistance(1200)).toBe('1,200 km');
+	});
+});
+
+describe('formatDuration', () => {
+	it('formats seconds as minutes and hours', () => {
+		expect(formatDuration(12)).toBe('< 1 min');
+		expect(formatDuration(60)).toBe('1 min');
+		expect(formatDuration(12.5 * 60)).toBe('13 min');
+		expect(formatDuration(3600)).toBe('1 h');
+		expect(formatDuration(3660)).toBe('1 h 1 min');
 	});
 });
 
@@ -91,6 +102,7 @@ describe('withNetworkDistance', () => {
 						routes: [
 							{
 								distance: 6_000_000,
+								duration: 216_000,
 								geometry: {
 									type: 'LineString',
 									coordinates: [
@@ -117,6 +129,7 @@ describe('withNetworkDistance', () => {
 		expect(byId.london!.km).toBeCloseTo(distanceKm(london, paris), 6);
 		expect(byId.nyc!.error).toBeUndefined();
 		expect(byId.nyc!.km).toBe(6000);
+		expect(byId.nyc!.durationSec).toBe(216_000);
 		expect(byId.nyc!.geometry).toHaveLength(2);
 	});
 });

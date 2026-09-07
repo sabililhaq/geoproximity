@@ -1,6 +1,7 @@
 import L from "leaflet";
 import {
   formatDistance,
+  formatDuration,
   samePlace,
   withDistance,
   withNetworkDistance,
@@ -15,6 +16,7 @@ import type { Place, ProximityState, DistanceMode } from "./types";
 
 type RankedPlace = Place & {
   km: number;
+  durationSec?: number;
   geometry?: Array<[number, number]>;
   /** Routing failed for this place; `km` is a straight-line fallback. */
   error?: RouteError;
@@ -347,6 +349,10 @@ export function startProximity(
   const routeModeButtons = Array.from(
     root.querySelectorAll<HTMLButtonElement>("[data-route-mode]"),
   );
+  const rankByGroup = root.querySelector("[data-rank-by]") as HTMLElement | null;
+  const rankMetricButtons = Array.from(
+    root.querySelectorAll<HTMLButtonElement>("[data-rank-metric]"),
+  );
   const routeAnimationToggle = qs<HTMLButtonElement>(
     root,
     "[data-route-animation]",
@@ -367,6 +373,8 @@ export function startProximity(
   let keyboardFocusedRowId: string | null = null;
   let currentRanked: RankedPlace[] = [];
   let distanceAbort: AbortController | null = null;
+  /** Driving/walking default to time; straight-line always ranks by distance. */
+  let rankByTime = true;
   const state: ProximityState = {
     destination: null,
     locations: [],
@@ -565,11 +573,44 @@ export function startProximity(
     }
   }
 
+  function sortRanked(places: RankedPlace[]): RankedPlace[] {
+    const byTime = rankByTime && state.distanceMode !== "straight";
+    return [...places].sort((a, b) => {
+      if (byTime) {
+        const at =
+          typeof a.durationSec === "number" && Number.isFinite(a.durationSec)
+            ? a.durationSec
+            : Infinity;
+        const bt =
+          typeof b.durationSec === "number" && Number.isFinite(b.durationSec)
+            ? b.durationSec
+            : Infinity;
+        if (at !== bt) return at - bt;
+      }
+      const ak = Number.isFinite(a.km) ? a.km : Infinity;
+      const bk = Number.isFinite(b.km) ? b.km : Infinity;
+      return ak - bk;
+    });
+  }
+
+  function placeMetricLabel(place: RankedPlace): string {
+    if (!Number.isFinite(place.km)) return "";
+    const dist = `${place.error ? "≈ " : ""}${formatDistance(place.km)}`;
+    if (
+      state.distanceMode !== "straight" &&
+      typeof place.durationSec === "number" &&
+      Number.isFinite(place.durationSec)
+    ) {
+      return `${formatDuration(place.durationSec)} · ${dist}`;
+    }
+    return dist;
+  }
+
   function rankedLocations(): RankedPlace[] {
     if (!state.destination) {
       return state.locations.map((place) => ({ ...place, km: Number.NaN }));
     }
-    return withDistance(state.locations, state.destination);
+    return sortRanked(withDistance(state.locations, state.destination));
   }
 
   async function rankedLocationsAsync(
@@ -582,11 +623,13 @@ export function startProximity(
       return rankedLocations();
     }
     const mode = state.distanceMode === "driving" ? "driving" : "walking";
-    return await withNetworkDistance(
-      state.locations,
-      state.destination,
-      mode,
-      signal,
+    return sortRanked(
+      await withNetworkDistance(
+        state.locations,
+        state.destination,
+        mode,
+        signal,
+      ),
     );
   }
 
@@ -802,6 +845,16 @@ export function startProximity(
         btn.dataset.routeMode === state.distanceMode ? "true" : "false",
       );
     }
+    if (rankByGroup) {
+      rankByGroup.hidden = state.distanceMode === "straight";
+    }
+    for (const btn of rankMetricButtons) {
+      const isTime = btn.dataset.rankMetric === "time";
+      btn.setAttribute(
+        "aria-pressed",
+        isTime === rankByTime ? "true" : "false",
+      );
+    }
     applyRouteAnimation();
 
     overlay.clearLayers();
@@ -858,9 +911,7 @@ export function startProximity(
     locEmpty.hidden = ranked.length > 0;
     locList.hidden = ranked.length === 0;
     for (const [index, place] of ranked.entries()) {
-      const kmLabel = Number.isFinite(place.km)
-        ? `${place.error ? "≈ " : ""}${formatDistance(place.km)}`
-        : "";
+      const kmLabel = placeMetricLabel(place);
       const isSelected = place.id === selectedLocationId;
       const locMarker = L.marker([place.lat, place.lon], {
         icon: locIcon(index + 1, isSelected),
@@ -988,9 +1039,8 @@ export function startProximity(
     if (isLoadingDistances) {
       hint.textContent = `Fetching ${modeLabel(state.distanceMode)} routes…`;
     } else if (selected) {
-      const label = Number.isFinite(selected.km)
-        ? `${selected.name} · ${selected.error ? "≈ " : ""}${formatDistance(selected.km)}`
-        : selected.name;
+      const metric = placeMetricLabel(selected);
+      const label = metric ? `${selected.name} · ${metric}` : selected.name;
       hint.textContent = `Highlighted: ${label} · click again to clear`;
     } else if (dest) {
       const approx = ranked.filter((place) => place.error).length;
@@ -1204,6 +1254,19 @@ export function startProximity(
         if (mode === state.distanceMode) return;
         selectedLocationId = null;
         state.distanceMode = mode;
+        render();
+      },
+      { signal: session.signal },
+    );
+  }
+
+  for (const btn of rankMetricButtons) {
+    btn.addEventListener(
+      "click",
+      () => {
+        const next = btn.dataset.rankMetric === "time";
+        if (next === rankByTime) return;
+        rankByTime = next;
         render();
       },
       { signal: session.signal },

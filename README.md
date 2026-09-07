@@ -107,7 +107,7 @@ Geoproximity supports three distance modes:
 * **Driving** — road distance returned by the OSRM routing service
 * **Walking** — walking route distance returned by the OSRM routing service
 
-Driving and walking modes also draw the returned route geometry on the map. **Advanced settings** holds an **Animate routes** switch that flows dashes along those routes, and **Reverse direction** to run the flow from destination toward locations instead. Both are unavailable for straight-line distance and stay off when the system prefers reduced motion. Routing requests run in the browser, so they depend on the external routing service and may fall back to straight-line estimates when a route cannot be fetched.
+Driving and walking modes also draw the returned route geometry on the map, show travel time next to distance, and default to ranking by time. Switch to **Distance** if you want the list ordered by kilometres instead. Times are typical uncongested estimates from the router, not live traffic. **Advanced settings** holds an **Animate routes** switch that flows dashes along those routes, and **Reverse direction** to run the flow from destination toward locations instead. Both are unavailable for straight-line distance and stay off when the system prefers reduced motion. Routing requests run in the browser, so they depend on the external routing service and may fall back to straight-line estimates when a route cannot be fetched.
 
 ## Limitations
 
