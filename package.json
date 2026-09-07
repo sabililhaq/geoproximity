@@ -37,10 +37,11 @@
     "leaflet"
   ],
   "license": "MIT",
-  "dependencies": {
+  "peerDependencies": {
     "leaflet": "^1.9.4"
   },
   "devDependencies": {
+    "leaflet": "^1.9.4",
     "@types/leaflet": "^1.9.12",
     "@types/node": "^22.15.0",
     "jsdom": "^29.1.1",
