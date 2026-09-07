@@ -27,6 +27,7 @@
     "build:lib": "vite build --config vite.lib.config.ts && tsc -p tsconfig.build.json",
     "prepublishOnly": "npm run build:lib",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src tests",
     "format": "prettier --write src tests index.html vite.config.ts vite.lib.config.ts vitest.config.ts tsconfig.json tsconfig.build.json",
@@ -47,6 +48,7 @@
     "leaflet": "^1.9.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/leaflet": "^1.9.12",
     "@types/node": "^22.15.0",
     "eslint": "^10.10.0",

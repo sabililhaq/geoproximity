@@ -1,5 +1,7 @@
 dist
 node_modules
+test-results
+playwright-report
 package-lock.json
 patch-070926.txt
 patch_real.txt
