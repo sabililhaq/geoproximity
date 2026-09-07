@@ -21,7 +21,22 @@ describe("share hash", () => {
     expect(result).toEqual({
       destination: { name: "Paris", lat: 48.8566, lon: 2.3522 },
       locations: [{ name: "London", lat: 51.5074, lon: -0.1278 }],
+      distanceMode: "straight",
     });
+  });
+
+  it("round-trips the distance mode and ignores unknown modes", () => {
+    const driving = readShareHash(
+      `#${encodeShareHash({ ...state, distanceMode: "driving" })}`,
+    );
+    expect(driving?.distanceMode).toBe("driving");
+
+    const bogus = readShareHash(
+      `#proximity=${encodeURIComponent(
+        JSON.stringify({ destination: null, locations: [], mode: "teleport" }),
+      )}`,
+    );
+    expect(bogus).toEqual({ destination: null, locations: [] });
   });
 
   it("rejects malformed or invalid hashes", () => {

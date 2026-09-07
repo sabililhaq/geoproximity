@@ -20,11 +20,39 @@ type RankedPlace = Place & {
   error?: RouteError;
 };
 
-const persisted: ProximityState = {
-  destination: null,
-  locations: [],
-  distanceMode: "straight",
-};
+let instanceCount = 0;
+
+/**
+ * Suffix every `id` inside `root` (and the `for` / `aria-describedby`
+ * attributes that point at them) so two mounted instances never share ids.
+ */
+function scopeIds(root: HTMLElement): void {
+  const suffix = `-${++instanceCount}`;
+  const renamed = new Map<string, string>();
+  for (const el of root.querySelectorAll<HTMLElement>("[id]")) {
+    const next = `${el.id}${suffix}`;
+    renamed.set(el.id, next);
+    el.id = next;
+  }
+  for (const el of root.querySelectorAll<HTMLElement>("[for]")) {
+    const target = renamed.get(el.getAttribute("for") ?? "");
+    if (target) el.setAttribute("for", target);
+  }
+  for (const el of root.querySelectorAll<HTMLElement>("[aria-describedby]")) {
+    const ids = (el.getAttribute("aria-describedby") ?? "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((id) => renamed.get(id) ?? id);
+    el.setAttribute("aria-describedby", ids.join(" "));
+  }
+}
+
+/** Leaflet renders string popup content as HTML; wrap user text in a node. */
+function popupContent(text: string): HTMLElement {
+  const el = document.createElement("span");
+  el.textContent = text;
+  return el;
+}
 
 function parseCoordinates(input: string): { lat: number; lon: number } | null {
   const trimmed = input.trim();
@@ -183,7 +211,7 @@ function bindSearch(
     "input",
     () => {
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => void run(), 280);
+      timer = window.setTimeout(() => void run(), 400);
     },
     { signal },
   );
@@ -339,6 +367,12 @@ export function startProximity(
   let keyboardFocusedRowId: string | null = null;
   let currentRanked: RankedPlace[] = [];
   let distanceAbort: AbortController | null = null;
+  const state: ProximityState = {
+    destination: null,
+    locations: [],
+    distanceMode: "straight",
+  };
+  scopeIds(root);
   shareBtn.hidden = !options.share;
 
   const session = new AbortController();
@@ -443,20 +477,35 @@ export function startProximity(
   host.addEventListener(
     "focusin",
     (event) => {
-      if (!(event.target instanceof HTMLInputElement)) return;
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
       window.setTimeout(() => {
         syncKeyboardViewport();
-        event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+        target.scrollIntoView({ block: "nearest", inline: "nearest" });
       }, 80);
     },
     { signal: session.signal },
   );
 
+  /** Move DOM focus to the rendered row for `placeId`, if it exists. */
+  function focusRow(placeId: string | null) {
+    if (!placeId) return;
+    const row = locList.querySelector<HTMLElement>(
+      `[data-place-id="${placeId}"]`,
+    );
+    row?.focus();
+  }
+
   function focusRowByIndex(index: number, ranked: RankedPlace[]) {
-    if (index < 0 || index >= ranked.length) return;
-    const place = ranked[index];
+    if (ranked.length === 0) return;
+    const clamped = Math.min(Math.max(index, 0), ranked.length - 1);
+    const place = ranked[clamped];
     keyboardFocusedRowId = place.id;
-    selectLocation(place.id, ranked, { fit: false });
+    // Explicitly select (not toggle) so arrowing onto the highlighted row
+    // does not clear it.
+    selectedLocationId = place.id;
+    doRender(ranked);
+    focusRow(place.id);
   }
 
   function handleLocationListKeyboard(
@@ -475,28 +524,36 @@ export function startProximity(
         focusRowByIndex(currentIndex - 1, ranked);
         break;
       case "Enter":
+      case " ":
         event.preventDefault();
         if (keyboardFocusedRowId) {
           selectLocation(keyboardFocusedRowId, ranked, { fit: true });
+          focusRow(keyboardFocusedRowId);
         }
         break;
       case "Escape":
         event.preventDefault();
-        keyboardFocusedRowId = null;
         selectedLocationId = null;
         render();
+        focusRow(keyboardFocusedRowId);
         break;
       case "Backspace":
-      case "Delete":
+      case "Delete": {
         event.preventDefault();
-        if (keyboardFocusedRowId) {
-          persisted.locations = persisted.locations.filter(
-            (item) => item.id !== keyboardFocusedRowId,
-          );
-          keyboardFocusedRowId = null;
-          render();
-        }
+        if (!keyboardFocusedRowId || currentIndex < 0) return;
+        const removedId = keyboardFocusedRowId;
+        // Keep focus in the list: prefer the row that slides into this
+        // slot, else the previous one.
+        const neighbour = ranked[currentIndex + 1] ?? ranked[currentIndex - 1];
+        if (selectedLocationId === removedId) selectedLocationId = null;
+        state.locations = state.locations.filter(
+          (item) => item.id !== removedId,
+        );
+        keyboardFocusedRowId = neighbour?.id ?? null;
+        render();
+        focusRow(keyboardFocusedRowId);
         break;
+      }
       case "Home":
         event.preventDefault();
         focusRowByIndex(0, ranked);
@@ -509,25 +566,25 @@ export function startProximity(
   }
 
   function rankedLocations(): RankedPlace[] {
-    if (!persisted.destination) {
-      return persisted.locations.map((place) => ({ ...place, km: Number.NaN }));
+    if (!state.destination) {
+      return state.locations.map((place) => ({ ...place, km: Number.NaN }));
     }
-    return withDistance(persisted.locations, persisted.destination);
+    return withDistance(state.locations, state.destination);
   }
 
   async function rankedLocationsAsync(
     signal: AbortSignal,
   ): Promise<RankedPlace[]> {
-    if (!persisted.destination) {
-      return persisted.locations.map((place) => ({ ...place, km: Number.NaN }));
+    if (!state.destination) {
+      return state.locations.map((place) => ({ ...place, km: Number.NaN }));
     }
-    if (persisted.distanceMode === "straight") {
+    if (state.distanceMode === "straight") {
       return rankedLocations();
     }
-    const mode = persisted.distanceMode === "driving" ? "driving" : "walking";
+    const mode = state.distanceMode === "driving" ? "driving" : "walking";
     return await withNetworkDistance(
-      persisted.locations,
-      persisted.destination,
+      state.locations,
+      state.destination,
       mode,
       signal,
     );
@@ -535,9 +592,9 @@ export function startProximity(
 
   function fit(force = true) {
     const points: L.LatLngExpression[] = [];
-    if (persisted.destination)
-      points.push([persisted.destination.lat, persisted.destination.lon]);
-    for (const place of persisted.locations)
+    if (state.destination)
+      points.push([state.destination.lat, state.destination.lon]);
+    for (const place of state.locations)
       points.push([place.lat, place.lon]);
     if (points.length === 0) {
       if (force) map.setView([20, 0], 2);
@@ -576,7 +633,7 @@ export function startProximity(
   }
 
   function applyRouteAnimation() {
-    const routed = persisted.distanceMode !== "straight";
+    const routed = state.distanceMode !== "straight";
     const reduced = motionQuery.matches;
     const animateOn = switchOn(routeAnimationToggle);
     const reverseOn = switchOn(routeAnimationReverseToggle);
@@ -630,7 +687,7 @@ export function startProximity(
   }
 
   function render() {
-    if (persisted.distanceMode !== "straight") {
+    if (state.distanceMode !== "straight") {
       void renderAsync();
     } else {
       doRender(rankedLocations());
@@ -649,14 +706,14 @@ export function startProximity(
     }
     host.classList.add("is-routing");
     hint.hidden = false;
-    hint.textContent = `Fetching ${modeLabel(persisted.distanceMode)} routes…`;
+    hint.textContent = `Fetching ${modeLabel(state.distanceMode)} routes…`;
 
     try {
       const ranked = await rankedLocationsAsync(signal);
       if (signal.aborted) return;
       const fallback = ranked.filter((place) => place.error).length;
       if (fallback > 0) {
-        const label = modeLabel(persisted.distanceMode);
+        const label = modeLabel(state.distanceMode);
         showStatus(
           fallback === ranked.length
             ? `${label.charAt(0).toUpperCase()}${label.slice(1)} routing unavailable · showing straight-line distances.`
@@ -671,7 +728,7 @@ export function startProximity(
       doRender(ranked);
     } catch (err) {
       if (!signal.aborted) {
-        hint.textContent = `Could not fetch ${modeLabel(persisted.distanceMode)} routes · showing straight-line distance`;
+        hint.textContent = `Could not fetch ${modeLabel(state.distanceMode)} routes · showing straight-line distance`;
       }
     } finally {
       if (distanceAbort === controller) {
@@ -729,7 +786,7 @@ export function startProximity(
     renderOpts?: { fitSelection?: boolean },
   ) {
     currentRanked = ranked;
-    const dest = persisted.destination;
+    const dest = state.destination;
     const color = accentColor();
 
     if (
@@ -742,7 +799,7 @@ export function startProximity(
     for (const btn of routeModeButtons) {
       btn.setAttribute(
         "aria-pressed",
-        btn.dataset.routeMode === persisted.distanceMode ? "true" : "false",
+        btn.dataset.routeMode === state.distanceMode ? "true" : "false",
       );
     }
     applyRouteAnimation();
@@ -765,7 +822,7 @@ export function startProximity(
         icon: destIcon(),
         zIndexOffset: 600,
       })
-        .bindPopup(dest.name)
+        .bindPopup(popupContent(dest.name))
         .addTo(overlay);
       markers.set(dest.id, destMarker);
 
@@ -787,7 +844,7 @@ export function startProximity(
       remove.textContent = "Remove";
       remove.addEventListener("click", () => {
         selectedLocationId = null;
-        persisted.destination = null;
+        state.destination = null;
         render();
       });
       destCurrent.append(copy, remove);
@@ -809,7 +866,9 @@ export function startProximity(
         icon: locIcon(index + 1, isSelected),
         zIndexOffset: isSelected ? 550 : 400,
       })
-        .bindPopup(kmLabel ? `${place.name} · ${kmLabel}` : place.name)
+        .bindPopup(
+          popupContent(kmLabel ? `${place.name} · ${kmLabel}` : place.name),
+        )
         .on("click", () => {
           selectLocation(place.id, ranked, { fit: true });
         })
@@ -874,7 +933,7 @@ export function startProximity(
       if (place.error) {
         dist.title =
           place.error === "no_route"
-            ? `No ${modeLabel(persisted.distanceMode)} route found · straight-line estimate`
+            ? `No ${modeLabel(state.distanceMode)} route found · straight-line estimate`
             : "Routing service unavailable · straight-line estimate";
       }
       const remove = document.createElement("button");
@@ -885,7 +944,7 @@ export function startProximity(
       remove.addEventListener("click", (event) => {
         event.stopPropagation();
         if (selectedLocationId === place.id) selectedLocationId = null;
-        persisted.locations = persisted.locations.filter(
+        state.locations = state.locations.filter(
           (item) => item.id !== place.id,
         );
         render();
@@ -893,12 +952,12 @@ export function startProximity(
       row.addEventListener("click", () => {
         selectLocation(place.id, ranked, { fit: true });
       });
-      row.addEventListener("keydown", (e) => {
-        handleLocationListKeyboard(e, ranked);
-      });
+      // Keyboard handling lives on the list (one listener, bubbling), so
+      // rows only need to report focus.
       row.addEventListener("focus", () => {
         keyboardFocusedRowId = place.id;
       });
+      row.dataset.placeId = place.id;
       row.setAttribute("tabindex", "0");
       row.append(rank, name, dist, remove);
       locList.append(row);
@@ -922,12 +981,12 @@ export function startProximity(
       if (selected) focusRoute(selected, dest, markers);
     }
 
-    const hasNodes = Boolean(dest) || persisted.locations.length > 0;
+    const hasNodes = Boolean(dest) || state.locations.length > 0;
     const selected = selectedLocationId
       ? ranked.find((place) => place.id === selectedLocationId)
       : undefined;
     if (isLoadingDistances) {
-      hint.textContent = `Fetching ${modeLabel(persisted.distanceMode)} routes…`;
+      hint.textContent = `Fetching ${modeLabel(state.distanceMode)} routes…`;
     } else if (selected) {
       const label = Number.isFinite(selected.km)
         ? `${selected.name} · ${selected.error ? "≈ " : ""}${formatDistance(selected.km)}`
@@ -935,9 +994,9 @@ export function startProximity(
       hint.textContent = `Highlighted: ${label} · click again to clear`;
     } else if (dest) {
       const approx = ranked.filter((place) => place.error).length;
-      const label = modeLabel(persisted.distanceMode);
+      const label = modeLabel(state.distanceMode);
       hint.textContent =
-        persisted.distanceMode === "straight"
+        state.distanceMode === "straight"
           ? "Click a location or path to highlight"
           : approx === 0
             ? `Showing ${label} routes · click to highlight`
@@ -953,7 +1012,7 @@ export function startProximity(
     clearBtn.disabled = !hasNodes;
 
     if (options.share) {
-      window.history.replaceState(null, "", `#${encodeShareHash(persisted)}`);
+      window.history.replaceState(null, "", `#${encodeShareHash(state)}`);
     }
   }
 
@@ -964,15 +1023,15 @@ export function startProximity(
     statusTimer = window.setTimeout(() => {
       ioStatus.hidden = true;
       ioStatus.textContent = "";
-    }, 3200);
+    }, 5000);
   }
 
   function applyFile(data: ProximityFile) {
     selectedLocationId = null;
-    persisted.destination = data.destination
+    state.destination = data.destination
       ? { id: crypto.randomUUID(), ...data.destination }
       : null;
-    persisted.locations = data.locations.map((node) => ({
+    state.locations = data.locations.map((node) => ({
       id: crypto.randomUUID(),
       ...node,
     }));
@@ -981,8 +1040,8 @@ export function startProximity(
   }
 
   function setDestination(place: Place) {
-    persisted.destination = place;
-    persisted.locations = persisted.locations.filter(
+    state.destination = place;
+    state.locations = state.locations.filter(
       (item) => !samePlace(item, place),
     );
     render();
@@ -990,10 +1049,10 @@ export function startProximity(
   }
 
   function addLocation(place: Place) {
-    if (persisted.destination && samePlace(persisted.destination, place))
+    if (state.destination && samePlace(state.destination, place))
       return;
-    if (persisted.locations.some((item) => samePlace(item, place))) return;
-    persisted.locations.push(place);
+    if (state.locations.some((item) => samePlace(item, place))) return;
+    state.locations.push(place);
     render();
     fit();
   }
@@ -1128,8 +1187,8 @@ export function startProximity(
     "click",
     () => {
       selectedLocationId = null;
-      persisted.destination = null;
-      persisted.locations = [];
+      state.destination = null;
+      state.locations = [];
       render();
       fit(true);
     },
@@ -1142,9 +1201,9 @@ export function startProximity(
       () => {
         const mode = btn.dataset.routeMode as DistanceMode;
         if (!mode) return;
-        if (mode === persisted.distanceMode) return;
+        if (mode === state.distanceMode) return;
         selectedLocationId = null;
-        persisted.distanceMode = mode;
+        state.distanceMode = mode;
         render();
       },
       { signal: session.signal },
@@ -1180,27 +1239,47 @@ export function startProximity(
     void reverseGeocode(lat, lng, session.signal).then((name) => {
       if (session.signal.aborted) return;
       const place: Place = { id: crypto.randomUUID(), name, lat, lon: lng };
-      if (!persisted.destination) setDestination(place);
+      if (!state.destination) setDestination(place);
       else addLocation(place);
     });
   });
 
+  // Ctrl/Cmd+K is a "jump to search" key, so it must work before the widget
+  // has focus. Listen on the document but ignore keys typed into other
+  // widgets on the page.
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (!((e.ctrlKey || e.metaKey) && e.key === "k")) return;
+      const target = e.target;
+      const outside =
+        target instanceof Node &&
+        target !== document.body &&
+        target !== document.documentElement &&
+        !root.contains(target);
+      if (outside) return;
+      e.preventDefault();
+      // The destination form is hidden once a destination is set, so fall
+      // through to the locations input in that case.
+      const input =
+        destForm.hidden || document.activeElement === destInput
+          ? locInput
+          : destInput;
+      input.focus();
+      input.select();
+    },
+    { signal: session.signal },
+  );
+
   host.addEventListener(
     "keydown",
     (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        const input =
-          document.activeElement?.id === "px-dest-input" ? locInput : destInput;
-        input.focus();
-        input.select();
-      }
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "C") {
         e.preventDefault();
         selectedLocationId = null;
         keyboardFocusedRowId = null;
-        persisted.destination = null;
-        persisted.locations = [];
+        state.destination = null;
+        state.locations = [];
         render();
         fit(true);
       }
@@ -1210,13 +1289,14 @@ export function startProximity(
 
   const shared = options.share ? readShareHash(window.location.hash) : null;
   if (shared) {
+    if (shared.distanceMode) state.distanceMode = shared.distanceMode;
     applyFile(shared);
     const count = shared.locations.length + (shared.destination ? 1 : 0);
     showStatus(`Loaded from shared link · ${count} nodes.`);
   } else if (
     options.sample &&
-    !persisted.destination &&
-    persisted.locations.length === 0
+    !state.destination &&
+    state.locations.length === 0
   ) {
     loadSample(false);
   } else {

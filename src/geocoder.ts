@@ -128,9 +128,6 @@ export async function searchPlaces(query: string, opts: SearchOptions = {}): Pro
 	}
 }
 
-export async function searchLocation(query: string, opts: SearchOptions = {}): Promise<GeocodeHit[]> {
-	return (await searchPlaces(query, opts)).hits;
-}
 
 export async function reverseGeocode(
 	lat: number,
