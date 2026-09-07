@@ -4,6 +4,7 @@ import {
 	distanceKm,
 	formatDistance,
 	formatDuration,
+	geodesicLatLngs,
 	samePlace,
 	withDistance,
 	withNetworkDistance,
@@ -41,6 +42,15 @@ describe('formatDistance', () => {
 
 	it('rounds larger distances', () => {
 		expect(formatDistance(1200)).toBe('1,200 km');
+	});
+});
+
+describe('geodesicLatLngs', () => {
+	it('bulges north of the Mercator chord from New York to London', () => {
+		const line = geodesicLatLngs(nyc, london);
+		expect(line.length).toBeGreaterThan(8);
+		const maxLat = Math.max(...line.map(([lat]) => lat));
+		expect(maxLat).toBeGreaterThan(Math.max(nyc.lat, london.lat));
 	});
 });
 

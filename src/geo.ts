@@ -45,6 +45,38 @@ export function withDistance<T extends Coord>(
 		.sort((a, b) => a.km - b.km);
 }
 
+function toCartesian(lat: number, lon: number): [number, number, number] {
+	const φ = (lat * Math.PI) / 180;
+	const λ = (lon * Math.PI) / 180;
+	return [Math.cos(φ) * Math.cos(λ), Math.cos(φ) * Math.sin(λ), Math.sin(φ)];
+}
+
+/** Leaflet lat/lng pairs along the great circle from `a` to `b`. */
+export function geodesicLatLngs(a: Coord, b: Coord): Array<[number, number]> {
+	const km = distanceKm(a, b);
+	if (km < 0.05) return [[a.lat, a.lon], [b.lat, b.lon]];
+	const segments = Math.max(8, Math.min(64, Math.round(km / 80)));
+	const A = toCartesian(a.lat, a.lon);
+	const B = toCartesian(b.lat, b.lon);
+	const dot = Math.min(1, Math.max(-1, A[0] * B[0] + A[1] * B[1] + A[2] * B[2]));
+	const omega = Math.acos(dot);
+	if (omega < 1e-8) return [[a.lat, a.lon], [b.lat, b.lon]];
+	const sinOmega = Math.sin(omega);
+	const points: Array<[number, number]> = [];
+	for (let i = 0; i <= segments; i++) {
+		const t = i / segments;
+		const s0 = Math.sin((1 - t) * omega) / sinOmega;
+		const s1 = Math.sin(t * omega) / sinOmega;
+		const x = s0 * A[0] + s1 * B[0];
+		const y = s0 * A[1] + s1 * B[1];
+		const z = s0 * A[2] + s1 * B[2];
+		const lat = (Math.atan2(z, Math.sqrt(x * x + y * y)) * 180) / Math.PI;
+		const lon = (Math.atan2(y, x) * 180) / Math.PI;
+		points.push([lat, lon]);
+	}
+	return points;
+}
+
 export type RouteError = 'network' | 'no_route' | 'unknown';
 
 function isAbortError(error: unknown): boolean {

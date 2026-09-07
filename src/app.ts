@@ -2,6 +2,7 @@ import L from "leaflet";
 import {
   formatDistance,
   formatDuration,
+  geodesicLatLngs,
   getNetworkDistance,
   samePlace,
   withDistance,
@@ -917,10 +918,7 @@ export function startProximity(
       if (dest) {
         const latlngs: L.LatLngExpression[] = place.geometry
           ? place.geometry.map(([lon, lat]) => [lat, lon])
-          : [
-              [place.lat, place.lon],
-              [dest.lat, dest.lon],
-            ];
+          : geodesicLatLngs(place, dest);
         const dashArray = place.geometry ? undefined : "6 6";
         const dimmed = hasSelection && !isSelected;
         const routedClass = place.geometry ? " px-edge-routed" : "";
