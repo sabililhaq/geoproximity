@@ -15,32 +15,72 @@ export type SharedComparison = {
   distanceMode?: DistanceMode;
 };
 
-export function encodeShareHash(state: ProximityState): string {
-  return `proximity=${encodeURIComponent(
-    JSON.stringify({
-      destination: state.destination
-        ? {
-            name: state.destination.name,
-            lat: state.destination.lat,
-            lon: state.destination.lon,
-          }
-        : null,
-      locations: state.locations.map((place) => ({
-        name: place.name,
-        lat: place.lat,
-        lon: place.lon,
-      })),
-      mode: state.distanceMode,
-    }),
-  )}`;
+function compactNum(n: number): string {
+  return String(Number(n.toFixed(6)));
 }
 
-export function readShareHash(hash: string): SharedComparison | null {
-  const prefix = "#proximity=";
-  if (!hash.startsWith(prefix)) return null;
+function encodeNode(node: { name: string; lat: number; lon: number }): string {
+  return `${compactNum(node.lat)},${compactNum(node.lon)},${encodeURIComponent(node.name)}`;
+}
 
+function parseCompactNode(token: string): ProximityNode | null {
+  const first = token.indexOf(",");
+  const second = token.indexOf(",", first + 1);
+  if (first < 0 || second < 0) return null;
+  const lat = Number(token.slice(0, first));
+  const lon = Number(token.slice(first + 1, second));
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  let name = token.slice(second + 1);
   try {
-    const text = decodeURIComponent(hash.slice(prefix.length));
+    name = decodeURIComponent(name);
+  } catch {
+    /* keep raw */
+  }
+  name = name.trim() || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  return { name, lat, lon };
+}
+
+const MODE_SHORT: Record<DistanceMode, string> = {
+  straight: "",
+  driving: "d",
+  walking: "w",
+};
+
+export function encodeShareHash(state: ProximityState): string {
+  const dest = state.destination ? encodeNode(state.destination) : "";
+  const locs = state.locations.map(encodeNode).join(";");
+  const mode = MODE_SHORT[state.distanceMode];
+  return `px=${dest}|${locs}|${mode}`;
+}
+
+function readCompactHash(hash: string): SharedComparison | null {
+  const body = hash.slice("#px=".length);
+  const parts = body.split("|");
+  if (parts.length < 2) return null;
+  const destToken = parts[0] ?? "";
+  const locToken = parts[1] ?? "";
+  const modeToken = parts[2] ?? "";
+  const destination = destToken ? parseCompactNode(destToken) : null;
+  if (destToken && !destination) return null;
+  const locations: ProximityNode[] = [];
+  if (locToken) {
+    for (const token of locToken.split(";")) {
+      const node = parseCompactNode(token);
+      if (!node) return null;
+      locations.push(node);
+    }
+  }
+  const distanceMode =
+    modeToken === "d" ? "driving" : modeToken === "w" ? "walking" : modeToken === "" ? "straight" : asDistanceMode(modeToken);
+  return distanceMode && distanceMode !== "straight"
+    ? { destination, locations, distanceMode }
+    : { destination, locations, distanceMode: distanceMode ?? "straight" };
+}
+
+function readLegacyHash(hash: string): SharedComparison | null {
+  try {
+    const text = decodeURIComponent(hash.slice("#proximity=".length));
     const result = parseProximityJson(text);
     if (!result.ok) return null;
 
@@ -54,4 +94,10 @@ export function readShareHash(hash: string): SharedComparison | null {
   } catch {
     return null;
   }
+}
+
+export function readShareHash(hash: string): SharedComparison | null {
+  if (hash.startsWith("#px=")) return readCompactHash(hash);
+  if (hash.startsWith("#proximity=")) return readLegacyHash(hash);
+  return null;
 }

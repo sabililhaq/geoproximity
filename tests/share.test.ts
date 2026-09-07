@@ -48,6 +48,26 @@ describe("share hash", () => {
         `#proximity=${encodeURIComponent(JSON.stringify({ destination: { name: "Bad", lat: 91, lon: 0 } }))}`,
       ),
     ).toBeNull();
+    expect(readShareHash("#px=91,0,Bad||")).toBeNull();
+  });
+
+  it("keeps names with commas and stays shorter than JSON hashes", () => {
+    const named = {
+      ...state,
+      destination: { ...state.destination, name: "Paris, France" },
+    };
+    const compact = encodeShareHash(named);
+    expect(compact.startsWith("px=")).toBe(true);
+    expect(readShareHash(`#${compact}`)?.destination?.name).toBe("Paris, France");
+
+    const json = `proximity=${encodeURIComponent(
+      JSON.stringify({
+        destination: { name: "Paris, France", lat: 48.8566, lon: 2.3522 },
+        locations: [{ name: "London", lat: 51.5074, lon: -0.1278 }],
+        mode: "straight",
+      }),
+    )}`;
+    expect(compact.length).toBeLessThan(json.length);
   });
 
   it("ignores a legacy unit field in shared links", () => {
