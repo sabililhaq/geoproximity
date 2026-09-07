@@ -1196,7 +1196,7 @@ export function startProximity(
           if (navigator.share) {
             try {
               await navigator.share({
-                title: "Proximity",
+                title: "Geoproximity",
                 text: "Compare destinations by proximity.",
                 url,
               });

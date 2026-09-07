@@ -78,10 +78,10 @@ export const proximityMarkup = `
 		</div>
 
 		<div class="px-map-wrap">
-			<div data-px-map class="px-map" role="application" aria-label="Proximity map"></div>
+			<div data-px-map class="px-map" role="application" aria-label="Geoproximity map"></div>
 			<p data-px-hint class="px-hint" hidden>Click the map to set a destination</p>
 			<div data-px-empty class="px-map-empty">
-				<div class="px-empty-guide" aria-label="How to use Proximity">
+				<div class="px-empty-guide" aria-label="How to use Geoproximity">
 					<strong>Start here</strong>
 					<ol>
 						<li>Set a destination</li>
