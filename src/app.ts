@@ -2,6 +2,7 @@ import L from "leaflet";
 import {
   formatDistance,
   formatDuration,
+  getNetworkDistance,
   samePlace,
   withDistance,
   withNetworkDistance,
@@ -737,6 +738,36 @@ export function startProximity(
     }
   }
 
+  async function fillRouteGeometries(
+    ranked: RankedPlace[],
+    signal: AbortSignal,
+  ) {
+    const dest = state.destination;
+    if (!dest || state.distanceMode === "straight") return;
+    const mode = state.distanceMode === "driving" ? "driving" : "walking";
+    const pending = ranked.filter((place) => !place.geometry && !place.error);
+    if (pending.length === 0) return;
+
+    let scheduled = 0;
+    const redraw = () => {
+      const id = ++scheduled;
+      requestAnimationFrame(() => {
+        if (id !== scheduled || signal.aborted) return;
+        doRender(currentRanked);
+      });
+    };
+
+    await Promise.all(
+      pending.map(async (place) => {
+        const route = await getNetworkDistance(place, dest, mode, signal);
+        if (signal.aborted || !route.geometry) return;
+        place.geometry = route.geometry;
+        if (route.durationSec != null) place.durationSec = route.durationSec;
+        redraw();
+      }),
+    );
+  }
+
   async function renderAsync() {
     distanceAbort?.abort();
     const controller = new AbortController();
@@ -769,6 +800,7 @@ export function startProximity(
         btn.disabled = false;
       }
       doRender(ranked);
+      await fillRouteGeometries(ranked, signal);
     } catch (err) {
       if (!signal.aborted) {
         hint.textContent = `Could not fetch ${modeLabel(state.distanceMode)} routes · showing straight-line distance`;

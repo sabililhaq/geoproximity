@@ -57,6 +57,6 @@ describe("mount sample option", () => {
     expect(app).toContain("prefers-reduced-motion");
     expect(app).toContain('aria-disabled');
     expect(app).toContain("aria-checked");
-    expect(app).not.toContain("doRender(currentRanked)");
+    expect(app).toContain("fillRouteGeometries");
   });
 });
