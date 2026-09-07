@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { proximityMarkup } from "../src/template";
+import { proximityMarkup, renderProximityMarkup } from "../src/template";
 
 describe("proximity markup", () => {
   it("has its own destination and location controls", () => {
@@ -58,6 +58,7 @@ describe("proximity markup", () => {
   it("adds accessible labels to shared controls", () => {
     expect(proximityMarkup).toContain('aria-label="Share this comparison"');
     expect(proximityMarkup).toContain('aria-label="Load sample data"');
+    expect(renderProximityMarkup({ driving: "Mobil" })).toContain("Mobil");
     expect(proximityMarkup).toContain('role="listbox"');
     expect(proximityMarkup).toContain('aria-label="Ranked locations"');
     expect(proximityMarkup).toContain('aria-label="Geoproximity map"');

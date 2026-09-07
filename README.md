@@ -157,7 +157,7 @@ if (host instanceof HTMLElement) {
 
 The host element needs a defined height. Geoproximity fills the available space and inherits the host's font and color tokens.
 
-Pass `sample: true` to load the bundled Bandung example when the map is empty, so a first visit is a comparison instead of a blank form.
+Pass `sample: true` to load the bundled Bandung example when the map is empty, so a first visit is a comparison instead of a blank form. Pass your own GeoJSON-like `{ destination, locations }` object instead of `true` to ship a different default. Override UI copy with `labels: { driving: 'Mobil', ... }`.
 
 Pass `share: true` to enable sharing comparisons through a URL hash. The standalone demo enables this option; library consumers opt in explicitly.
 

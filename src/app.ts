@@ -276,7 +276,7 @@ function bindSearch(
 }
 
 export type StartProximityOptions = {
-  sample?: boolean;
+  sample?: boolean | ProximityFile;
   share?: boolean;
   /** CARTO raster basemap key. Falls back to VITE_CARTO_API_KEY. */
   cartoApiKey?: string;
@@ -1366,7 +1366,10 @@ export function startProximity(
   fitBtn.addEventListener("click", () => fit(true), { signal: session.signal });
 
   function loadSample(announce = true) {
-    const result = parseProximityJson(JSON.stringify(sampleProximity));
+    const custom = typeof options.sample === "object" ? options.sample : null;
+    const result = custom
+      ? { ok: true as const, data: custom }
+      : parseProximityJson(JSON.stringify(sampleProximity));
     if (!result.ok) {
       showStatus(result.error);
       return;

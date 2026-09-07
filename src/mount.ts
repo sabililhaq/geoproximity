@@ -6,28 +6,32 @@ import {
   startProximity,
   type ProximityHandle,
 } from "./app";
-import { proximityMarkup } from "./template";
+import { renderProximityMarkup } from "./template";
 import type { ProximityFile } from "./io";
+import type { UiLabels } from "./labels";
 import type { ProximityState } from "./types";
 
 export type MountProximityOptions = {
   basePath?: string;
-  /** Load the bundled sample when the map is empty. */
-  sample?: boolean;
+  /** Load the bundled sample when the map is empty, or pass your own. */
+  sample?: boolean | ProximityFile;
   /** Enable sharing comparisons through the URL hash. */
   share?: boolean;
   /** CARTO raster basemap key. Falls back to VITE_CARTO_API_KEY. */
   cartoApiKey?: string;
+  /** Override visible English strings. */
+  labels?: Partial<UiLabels>;
 };
 
 export type { ProximityHandle, ProximityState, ProximityFile };
+export type { UiLabels };
 
 export function mountProximity(
   root: HTMLElement,
   options: MountProximityOptions = {},
 ): ProximityHandle {
   if (!root.querySelector("[data-proximity]")) {
-    root.innerHTML = proximityMarkup;
+    root.innerHTML = renderProximityMarkup(options.labels);
   }
 
   const inner = startProximity(root, options);

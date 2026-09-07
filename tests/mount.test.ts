@@ -11,7 +11,7 @@ describe("mount sample option", () => {
     const mount = readFileSync(mountPath, "utf-8");
     const app = readFileSync(appPath, "utf-8");
 
-    expect(mount).toContain("sample?: boolean");
+    expect(mount).toContain("sample?: boolean | ProximityFile");
     expect(mount).toContain("startProximity(root, options)");
     expect(app).toContain("options.sample");
     expect(app).toContain("loadSample(false)");
