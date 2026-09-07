@@ -332,6 +332,7 @@ export function startProximity(
   let keyboardFocusedRowId: string | null = null;
   let currentRanked: RankedPlace[] = [];
   let distanceAbort: AbortController | null = null;
+  let lastRankAnnouncement = "";
   /** Driving/walking default to time; straight-line always ranks by distance. */
   let rankByTime = true;
   const state: ProximityState = {
@@ -1070,6 +1071,26 @@ export function startProximity(
     if (options.share) {
       window.history.replaceState(null, "", `#${encodeShareHash(state)}`);
     }
+
+    const orderKey = `${state.distanceMode}:${rankByTime ? "time" : "km"}:${ranked.map((place) => place.id).join(",")}`;
+    if (
+      lastRankAnnouncement &&
+      orderKey !== lastRankAnnouncement &&
+      dest &&
+      ranked.length > 0 &&
+      !isLoadingDistances
+    ) {
+      const top = ranked[0]!;
+      const metric = placeMetricLabel(top);
+      const by =
+        state.distanceMode === "straight" || !rankByTime ? "distance" : "time";
+      showStatus(
+        metric
+          ? `Ranked by ${by} · ${top.name} is closest at ${metric}`
+          : `Ranked by ${by} · ${top.name} is closest`,
+      );
+    }
+    lastRankAnnouncement = orderKey;
   }
 
   function showStatus(message: string) {
