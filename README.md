@@ -113,10 +113,11 @@ Driving and walking modes also draw the returned route geometry on the map, show
 
 The built-in location data is not yet comprehensive.
 
-For better accuracy, you can copy a location's coordinates from Google Maps and enter them directly:
+For better accuracy, paste coordinates or a Google Maps URL into the search box:
 
 ```text
 latitude, longitude
+https://www.google.com/maps/@-6.9205,107.6099,17z
 ```
 
 The application also relies on external services for some functionality, so availability may occasionally be affected by external rate limits, particularly during high traffic.

@@ -9,6 +9,7 @@ import {
   type RouteError,
 } from "./geo";
 import { reverseGeocode, searchPlaces, type GeocodeHit } from "./geocoder";
+import { parsePlaceInput } from "./parse-place";
 import { parseProximityJson, type ProximityFile } from "./io";
 import { encodeShareHash, readShareHash } from "./share";
 import sampleProximity from "./sample-proximity.json";
@@ -55,20 +56,6 @@ function popupContent(text: string): HTMLElement {
   const el = document.createElement("span");
   el.textContent = text;
   return el;
-}
-
-function parseCoordinates(input: string): { lat: number; lon: number } | null {
-  const trimmed = input.trim();
-  const match = trimmed.match(/^\s*([-\d.]+)\s*[,\s]\s*([-\d.]+)\s*$/);
-  if (!match) return null;
-
-  const lat = parseFloat(match[1]);
-  const lon = parseFloat(match[2]);
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
-
-  return { lat, lon };
 }
 
 const maps = new WeakMap<HTMLElement, L.Map>();
@@ -176,29 +163,18 @@ function bindSearch(
       return;
     }
 
-    const mode = input.getAttribute("data-input-mode") || "search";
-    if (mode === "coords") {
-      const coords = parseCoordinates(query);
-      if (coords) {
-        const name = `${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}`;
-        onPick({
-          id: crypto.randomUUID(),
-          name,
-          lat: coords.lat,
-          lon: coords.lon,
-        });
-        input.value = "";
-        hide();
-        return;
-      } else {
-        results.replaceChildren();
-        const error = document.createElement("div");
-        error.className = "px-empty";
-        error.textContent = "Invalid coordinates. Use format: lat, lon";
-        results.append(error);
-        results.hidden = false;
-        return;
-      }
+    const coords = parsePlaceInput(query);
+    if (coords) {
+      const name = `${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}`;
+      onPick({
+        id: crypto.randomUUID(),
+        name,
+        lat: coords.lat,
+        lon: coords.lon,
+      });
+      input.value = "";
+      hide();
+      return;
     }
 
     searchAbort?.abort();
@@ -286,30 +262,6 @@ function bindSearch(
       });
     }
   };
-
-  const modeRadios = form.parentElement?.querySelectorAll(
-    'input[type="radio"]',
-  );
-  if (modeRadios) {
-    for (const radio of modeRadios) {
-      radio.addEventListener(
-        "change",
-        () => {
-          const newMode = (radio as HTMLInputElement).value;
-          input.setAttribute("data-input-mode", newMode);
-          input.placeholder =
-            newMode === "coords"
-              ? "e.g., 48.8566, 2.3522"
-              : input.placeholder.includes("destination")
-                ? "Search a destination"
-                : "Add a city or place";
-          input.value = "";
-          hide();
-        },
-        { signal },
-      );
-    }
-  }
 
   signal.addEventListener("abort", () => {
     window.clearTimeout(timer);
