@@ -865,9 +865,15 @@ export function startProximity(
       const destMarker = L.marker([dest.lat, dest.lon], {
         icon: destIcon(),
         zIndexOffset: 600,
+        title: dest.name,
       })
         .bindPopup(popupContent(dest.name))
         .addTo(overlay);
+      const destEl = destMarker.getElement();
+      if (destEl) {
+        destEl.setAttribute("role", "img");
+        destEl.setAttribute("aria-label", `Destination, ${dest.name}`);
+      }
       markers.set(dest.id, destMarker);
 
       destCurrent.hidden = false;
@@ -907,6 +913,7 @@ export function startProximity(
       const locMarker = L.marker([place.lat, place.lon], {
         icon: locIcon(index + 1, isSelected),
         zIndexOffset: isSelected ? 550 : 400,
+        title: place.name,
       })
         .bindPopup(
           popupContent(kmLabel ? `${place.name} · ${kmLabel}` : place.name),
@@ -915,6 +922,16 @@ export function startProximity(
           selectLocation(place.id, ranked, { fit: true });
         })
         .addTo(overlay);
+      const locEl = locMarker.getElement();
+      if (locEl) {
+        locEl.setAttribute("role", "img");
+        locEl.setAttribute(
+          "aria-label",
+          kmLabel
+            ? `${place.name}, rank ${index + 1}, ${kmLabel}`
+            : `${place.name}, rank ${index + 1}`,
+        );
+      }
       markers.set(place.id, locMarker);
       if (dest) {
         const latlngs: L.LatLngExpression[] = place.geometry

@@ -72,6 +72,9 @@ describe("popup content", () => {
 
     const marker = root.querySelector<HTMLElement>(".px-marker-num");
     expect(marker).not.toBeNull();
+    const icon = marker!.closest(".leaflet-marker-icon");
+    expect(icon?.getAttribute("aria-label")).toContain("Evil");
+    expect(icon?.getAttribute("aria-label")).toContain("rank 1");
     marker!.parentElement!.dispatchEvent(
       new MouseEvent("click", { bubbles: true }),
     );
