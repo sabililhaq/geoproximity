@@ -143,7 +143,11 @@ The distance ranking itself only considers distance. It does not account for tra
 
 Geoproximity can be embedded into another web application:
 
+Leaflet is a peer dependency. Import the widget styles (and Leaflet's CSS if the host does not already):
+
 ```js
+import 'leaflet/dist/leaflet.css';
+import 'geoproximity/styles.css';
 import { mountProximity } from 'geoproximity';
 
 const host = document.querySelector('[data-proximity-host]');
