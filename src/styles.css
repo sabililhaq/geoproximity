@@ -88,6 +88,20 @@
 	font-size: 0.78rem;
 }
 
+.px-undo {
+	appearance: none;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--accent);
+	font: inherit;
+	font-size: inherit;
+	font-weight: 650;
+	cursor: pointer;
+	text-decoration: underline;
+}
+
 .px-io-row button {
 	display: flex;
 	align-items: center;

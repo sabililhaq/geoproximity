@@ -514,9 +514,11 @@ export function startProximity(
         event.preventDefault();
         if (!keyboardFocusedRowId || currentIndex < 0) return;
         const removedId = keyboardFocusedRowId;
+        const removed = state.locations.find((item) => item.id === removedId);
         // Keep focus in the list: prefer the row that slides into this
         // slot, else the previous one.
         const neighbour = ranked[currentIndex + 1] ?? ranked[currentIndex - 1];
+        const snap = snapshotState();
         if (selectedLocationId === removedId) selectedLocationId = null;
         state.locations = state.locations.filter(
           (item) => item.id !== removedId,
@@ -524,6 +526,7 @@ export function startProximity(
         keyboardFocusedRowId = neighbour?.id ?? null;
         render();
         focusRow(keyboardFocusedRowId);
+        if (removed) showUndo(`Removed ${removed.name}.`, snap);
         break;
       }
       case "Home":
@@ -912,9 +915,12 @@ export function startProximity(
       remove.className = "px-dest-remove";
       remove.textContent = "Remove";
       remove.addEventListener("click", () => {
+        const snap = snapshotState();
+        const name = dest.name;
         selectedLocationId = null;
         state.destination = null;
         render();
+        showUndo(`Removed ${name}.`, snap);
       });
       destCurrent.append(copy, remove);
     } else {
@@ -1031,11 +1037,13 @@ export function startProximity(
       remove.textContent = "×";
       remove.addEventListener("click", (event) => {
         event.stopPropagation();
+        const snap = snapshotState();
         if (selectedLocationId === place.id) selectedLocationId = null;
         state.locations = state.locations.filter(
           (item) => item.id !== place.id,
         );
         render();
+        showUndo(`Removed ${place.name}.`, snap);
       });
       row.addEventListener("click", (event) => {
         if (event.detail > 1) return;
@@ -1109,7 +1117,8 @@ export function startProximity(
       orderKey !== lastRankAnnouncement &&
       dest &&
       ranked.length > 0 &&
-      !isLoadingDistances
+      !isLoadingDistances &&
+      !undoOpen
     ) {
       const top = ranked[0]!;
       const metric = placeMetricLabel(top);
@@ -1124,7 +1133,37 @@ export function startProximity(
     lastRankAnnouncement = orderKey;
   }
 
+  type StateSnapshot = {
+    destination: Place | null;
+    locations: Place[];
+    selectedLocationId: string | null;
+    keyboardFocusedRowId: string | null;
+  };
+
+  let undoOpen = false;
+
+  function snapshotState(): StateSnapshot {
+    return {
+      destination: state.destination ? { ...state.destination } : null,
+      locations: state.locations.map((item) => ({ ...item })),
+      selectedLocationId,
+      keyboardFocusedRowId,
+    };
+  }
+
+  function restoreSnapshot(snap: StateSnapshot) {
+    state.destination = snap.destination;
+    state.locations = snap.locations;
+    selectedLocationId = snap.selectedLocationId;
+    keyboardFocusedRowId = snap.keyboardFocusedRowId;
+    undoOpen = false;
+    render();
+    fit(true);
+    focusRow(keyboardFocusedRowId);
+  }
+
   function showStatus(message: string) {
+    undoOpen = false;
     ioStatus.hidden = false;
     ioStatus.textContent = message;
     window.clearTimeout(statusTimer);
@@ -1132,6 +1171,31 @@ export function startProximity(
       ioStatus.hidden = true;
       ioStatus.textContent = "";
     }, 5000);
+  }
+
+  function showUndo(message: string, snap: StateSnapshot) {
+    undoOpen = true;
+    ioStatus.hidden = false;
+    ioStatus.replaceChildren();
+    const text = document.createElement("span");
+    text.textContent = `${message} `;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "px-undo";
+    btn.textContent = "Undo";
+    btn.addEventListener("click", () => {
+      window.clearTimeout(statusTimer);
+      restoreSnapshot(snap);
+      ioStatus.hidden = true;
+      ioStatus.replaceChildren();
+    });
+    ioStatus.append(text, btn);
+    window.clearTimeout(statusTimer);
+    statusTimer = window.setTimeout(() => {
+      undoOpen = false;
+      ioStatus.hidden = true;
+      ioStatus.replaceChildren();
+    }, 8000);
   }
 
   function applyFile(data: ProximityFile) {
@@ -1346,11 +1410,14 @@ export function startProximity(
   clearBtn.addEventListener(
     "click",
     () => {
+      const snap = snapshotState();
       selectedLocationId = null;
+      keyboardFocusedRowId = null;
       state.destination = null;
       state.locations = [];
       render();
       fit(true);
+      showUndo("Cleared comparison.", snap);
     },
     { signal: session.signal },
   );
@@ -1458,12 +1525,14 @@ export function startProximity(
     (e) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "C") {
         e.preventDefault();
+        const snap = snapshotState();
         selectedLocationId = null;
         keyboardFocusedRowId = null;
         state.destination = null;
         state.locations = [];
         render();
         fit(true);
+        showUndo("Cleared comparison.", snap);
       }
     },
     { signal: session.signal },

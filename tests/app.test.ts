@@ -148,6 +148,24 @@ describe("location list keyboard navigation", () => {
   });
 });
 
+describe("undo", () => {
+  it("restores locations after clear", () => {
+    const { root, stop } = mountWithHash({
+      destination: dest,
+      locations: [london, brussels],
+    });
+    cleanups.push(stop);
+
+    expect(rows(root).length).toBeGreaterThan(0);
+    root.querySelector<HTMLButtonElement>("[data-clear]")!.click();
+    expect(rows(root)).toHaveLength(0);
+    root.querySelector<HTMLButtonElement>(".px-undo")!.click();
+    expect(rows(root).map((row) => row.querySelector(".px-row-name")!.textContent)).toEqual(
+      ["Brussels", "London"],
+    );
+  });
+});
+
 describe("inline rename", () => {
   it("renames a location on double-click", () => {
     const { root, stop } = mountWithHash({
