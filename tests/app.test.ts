@@ -166,6 +166,31 @@ describe("location list keyboard navigation", () => {
   });
 });
 
+describe("programmatic API", () => {
+  it("reads and writes state and notifies onChange", () => {
+    const root = document.createElement("div");
+    document.body.append(root);
+    const handle = mountProximity(root, {});
+    cleanups.push(handle);
+
+    const seen: string[] = [];
+    const off = handle.onChange((state) => {
+      seen.push(state.destination?.name ?? "");
+    });
+
+    handle.setState({
+      destination: dest,
+      locations: [london],
+    });
+    expect(handle.getState().destination?.name).toBe("Paris");
+    expect(
+      rows(root).map((row) => row.querySelector(".px-row-name")!.textContent),
+    ).toEqual(["London"]);
+    expect(seen).toContain("Paris");
+    off();
+  });
+});
+
 describe("localStorage", () => {
   it("restores the last comparison without a share link", () => {
     const { root, stop } = mountWithHash({

@@ -282,10 +282,18 @@ export type StartProximityOptions = {
   cartoApiKey?: string;
 };
 
+export type ProximityHandle = {
+  (): void;
+  destroy: () => void;
+  getState: () => ProximityState;
+  setState: (next: Partial<ProximityState> | ProximityFile) => void;
+  onChange: (listener: (state: ProximityState) => void) => () => void;
+};
+
 export function startProximity(
   root: HTMLElement,
   options: StartProximityOptions = {},
-): () => void {
+): ProximityHandle {
   const host = qs(root, "[data-proximity]");
   const mapEl = qs(root, "[data-px-map]");
   const destForm = qs<HTMLFormElement>(root, "[data-dest-form]");
@@ -1137,6 +1145,7 @@ export function startProximity(
       );
     }
     lastRankAnnouncement = orderKey;
+    notifyChange();
   }
 
   type StateSnapshot = {
@@ -1147,6 +1156,20 @@ export function startProximity(
   };
 
   let undoOpen = false;
+  const changeListeners = new Set<(state: ProximityState) => void>();
+
+  function cloneState(): ProximityState {
+    return {
+      destination: state.destination ? { ...state.destination } : null,
+      locations: state.locations.map((item) => ({ ...item })),
+      distanceMode: state.distanceMode,
+    };
+  }
+
+  function notifyChange() {
+    const snap = cloneState();
+    for (const listener of changeListeners) listener(snap);
+  }
 
   function snapshotState(): StateSnapshot {
     return {
@@ -1565,7 +1588,35 @@ export function startProximity(
   }
   window.setTimeout(() => map.invalidateSize(), 0);
 
-  return () => {
+  function setState(next: Partial<ProximityState> | ProximityFile) {
+    if ("destination" in next && next.destination !== undefined) {
+      state.destination = next.destination
+        ? {
+            id: crypto.randomUUID(),
+            name: next.destination.name,
+            lat: next.destination.lat,
+            lon: next.destination.lon,
+          }
+        : null;
+    }
+    if ("locations" in next && next.locations) {
+      state.locations = next.locations.map((node) => ({
+        id: crypto.randomUUID(),
+        name: node.name,
+        lat: node.lat,
+        lon: node.lon,
+      }));
+    }
+    if ("distanceMode" in next && next.distanceMode) {
+      state.distanceMode = next.distanceMode;
+    }
+    selectedLocationId = null;
+    render();
+    fit(true);
+  }
+
+  const destroy = () => {
+    changeListeners.clear();
     session.abort();
     distanceAbort?.abort();
     window.clearTimeout(statusTimer);
@@ -1574,4 +1625,16 @@ export function startProximity(
     maps.delete(root);
     map.remove();
   };
+
+  return Object.assign(destroy, {
+    destroy,
+    getState: cloneState,
+    setState,
+    onChange: (listener: (state: ProximityState) => void) => {
+      changeListeners.add(listener);
+      return () => {
+        changeListeners.delete(listener);
+      };
+    },
+  });
 }

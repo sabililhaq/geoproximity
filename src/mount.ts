@@ -1,8 +1,14 @@
 import "leaflet/dist/leaflet.css";
 import "./styles.css";
 
-import { invalidateProximity, startProximity } from "./app";
+import {
+  invalidateProximity,
+  startProximity,
+  type ProximityHandle,
+} from "./app";
 import { proximityMarkup } from "./template";
+import type { ProximityFile } from "./io";
+import type { ProximityState } from "./types";
 
 export type MountProximityOptions = {
   basePath?: string;
@@ -14,21 +20,29 @@ export type MountProximityOptions = {
   cartoApiKey?: string;
 };
 
+export type { ProximityHandle, ProximityState, ProximityFile };
+
 export function mountProximity(
   root: HTMLElement,
   options: MountProximityOptions = {},
-): () => void {
+): ProximityHandle {
   if (!root.querySelector("[data-proximity]")) {
     root.innerHTML = proximityMarkup;
   }
 
-  const stop = startProximity(root, options);
+  const inner = startProximity(root, options);
   window.setTimeout(() => invalidateProximity(root), 60);
 
-  return () => {
-    stop();
+  const destroy = () => {
+    inner.destroy();
     root.replaceChildren();
   };
+  return Object.assign(destroy, {
+    destroy,
+    getState: inner.getState,
+    setState: inner.setState,
+    onChange: inner.onChange,
+  });
 }
 
 export { invalidateProximity };

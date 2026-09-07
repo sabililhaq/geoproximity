@@ -149,7 +149,9 @@ import { mountProximity } from 'geoproximity';
 const host = document.querySelector('[data-proximity-host]');
 
 if (host instanceof HTMLElement) {
-  mountProximity(host, { basePath: '/map', sample: true });
+  const app = mountProximity(host, { basePath: '/map', sample: true });
+  app.onChange((state) => console.log(state.distanceMode));
+  // app.getState() / app.setState({ ... }) / app.destroy()
 }
 ```
 

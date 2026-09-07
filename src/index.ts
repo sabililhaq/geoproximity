@@ -1,1 +1,8 @@
-export { mountProximity, invalidateProximity, type MountProximityOptions } from './mount';
+export {
+  mountProximity,
+  invalidateProximity,
+  type MountProximityOptions,
+  type ProximityHandle,
+  type ProximityState,
+  type ProximityFile,
+} from './mount';
