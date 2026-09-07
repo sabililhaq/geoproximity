@@ -5,10 +5,25 @@ export type GeocodeHit = {
 	lon: number;
 };
 
+export type SearchBias = {
+	lat: number;
+	lon: number;
+};
+
 type SearchOptions = {
 	limit?: number;
 	signal?: AbortSignal;
+	bias?: SearchBias;
 };
+
+function viewboxAround(bias: SearchBias, span = 1): string {
+	const minLon = Math.max(-180, bias.lon - span);
+	const maxLon = Math.min(180, bias.lon + span);
+	const minLat = Math.max(-90, bias.lat - span);
+	const maxLat = Math.min(90, bias.lat + span);
+	// Nominatim: left, top, right, bottom
+	return `${minLon},${maxLat},${maxLon},${minLat}`;
+}
 
 type NominatimHit = {
 	display_name?: string;
@@ -45,8 +60,19 @@ async function searchNominatim(
 	query: string,
 	limit: number,
 	signal?: AbortSignal,
+	bias?: SearchBias,
 ): Promise<GeocodeHit[]> {
-	const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&limit=${limit}&addressdetails=1`;
+	const params = new URLSearchParams({
+		format: 'jsonv2',
+		q: query,
+		limit: String(limit),
+		addressdetails: '1',
+	});
+	if (bias) {
+		params.set('viewbox', viewboxAround(bias));
+		params.set('bounded', '0');
+	}
+	const url = `https://nominatim.openstreetmap.org/search?${params}`;
 	const response = await fetch(url, { signal, headers: { Accept: 'application/json' } });
 	if (!response.ok) throw new Error(`Nominatim ${response.status}`);
 	const data: unknown = await response.json();
@@ -72,8 +98,17 @@ async function searchPhoton(
 	query: string,
 	limit: number,
 	signal?: AbortSignal,
+	bias?: SearchBias,
 ): Promise<GeocodeHit[]> {
-	const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=${limit}`;
+	const params = new URLSearchParams({
+		q: query,
+		limit: String(limit),
+	});
+	if (bias) {
+		params.set('lat', String(bias.lat));
+		params.set('lon', String(bias.lon));
+	}
+	const url = `https://photon.komoot.io/api/?${params}`;
 	const response = await fetch(url, { signal, headers: { Accept: 'application/json' } });
 	if (!response.ok) throw new Error(`Photon ${response.status}`);
 	const data: { features?: PhotonFeature[] } = await response.json();
@@ -107,11 +142,11 @@ export type GeocodeSearch = {
 export async function searchPlaces(query: string, opts: SearchOptions = {}): Promise<GeocodeSearch> {
 	const none: GeocodeSearch = { hits: [], unavailable: false };
 	if (!query || query.length < 2) return none;
-	const { limit = 8, signal } = opts;
+	const { limit = 8, signal, bias } = opts;
 
 	let nominatimFailed = false;
 	try {
-		const hits = await searchNominatim(query, limit, signal);
+		const hits = await searchNominatim(query, limit, signal, bias);
 		if (hits.length > 0) return { hits, unavailable: false };
 	} catch (error) {
 		if (isAbortError(error)) return none;
@@ -119,7 +154,7 @@ export async function searchPlaces(query: string, opts: SearchOptions = {}): Pro
 	}
 
 	try {
-		const hits = await searchPhoton(query, limit, signal);
+		const hits = await searchPhoton(query, limit, signal, bias);
 		return { hits, unavailable: false };
 	} catch (error) {
 		if (isAbortError(error)) return none;

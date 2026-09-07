@@ -122,6 +122,7 @@ function bindSearch(
   form: HTMLFormElement,
   onPick: (place: Place) => void,
   signal: AbortSignal,
+  getBias?: () => { lat: number; lon: number } | null,
 ): void {
   let timer = 0;
   let searchAbort: AbortController | null = null;
@@ -205,7 +206,11 @@ function bindSearch(
     results.hidden = false;
     results.textContent = "Searching…";
     const controller = searchAbort;
-    const result = await searchPlaces(query, { signal: controller.signal });
+    const bias = getBias?.() ?? undefined;
+    const result = await searchPlaces(query, {
+      signal: controller.signal,
+      bias: bias ?? undefined,
+    });
     if (seq !== searchSeq || controller.signal.aborted) return;
     renderHits(result.hits, result.unavailable);
   };
@@ -1139,6 +1144,13 @@ export function startProximity(
     fit();
   }
 
+  const searchBias = () => {
+    if (state.destination) {
+      return { lat: state.destination.lat, lon: state.destination.lon };
+    }
+    const center = map.getCenter();
+    return { lat: center.lat, lon: center.lng };
+  };
   bindSearch(
     root,
     destInput,
@@ -1146,8 +1158,17 @@ export function startProximity(
     destForm,
     setDestination,
     session.signal,
+    searchBias,
   );
-  bindSearch(root, locInput, locResults, locForm, addLocation, session.signal);
+  bindSearch(
+    root,
+    locInput,
+    locResults,
+    locForm,
+    addLocation,
+    session.signal,
+    searchBias,
+  );
 
   useLocationBtn.addEventListener(
     "click",
