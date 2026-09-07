@@ -51,7 +51,7 @@ export const proximityMarkup = `
 						<div data-loc-results class="px-results" hidden></div>
 					</form>
 					<p data-loc-empty class="px-list-empty">Search a place, paste coordinates, or click the map to add a comparison location.</p>
-					<ul data-loc-list class="px-list" hidden></ul>
+					<ul data-loc-list class="px-list" role="listbox" aria-label="Ranked locations" hidden></ul>
 				</section>
 			</div>
 

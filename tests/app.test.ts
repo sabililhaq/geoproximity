@@ -93,6 +93,8 @@ describe("location list keyboard navigation", () => {
     cleanups.push(stop);
 
     const list = root.querySelector("[data-loc-list]")!;
+    expect(list.getAttribute("role")).toBe("listbox");
+    expect(rows(root)[0]!.getAttribute("role")).toBe("option");
     rows(root)[0]!.focus();
     key(document.activeElement!, "ArrowDown");
 

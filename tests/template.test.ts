@@ -58,6 +58,8 @@ describe("proximity markup", () => {
   it("adds accessible labels to shared controls", () => {
     expect(proximityMarkup).toContain('aria-label="Share this comparison"');
     expect(proximityMarkup).toContain('aria-label="Load sample data"');
+    expect(proximityMarkup).toContain('role="listbox"');
+    expect(proximityMarkup).toContain('aria-label="Ranked locations"');
     expect(proximityMarkup).toContain('aria-label="Geoproximity map"');
     expect(proximityMarkup).toContain('aria-label="How to use Geoproximity"');
     expect(proximityMarkup).not.toContain('How to use Proximity');

@@ -958,7 +958,8 @@ export function startProximity(
       row.title = isSelected
         ? "Click again to clear highlight"
         : "Highlight route on map";
-      row.setAttribute("aria-current", isSelected ? "true" : "false");
+      row.setAttribute("role", "option");
+      row.setAttribute("aria-selected", isSelected ? "true" : "false");
       const rank = document.createElement("span");
       rank.className = "px-rank";
       rank.textContent = String(index + 1);
