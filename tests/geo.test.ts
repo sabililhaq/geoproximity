@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+	clearRouteCache,
 	distanceKm,
 	formatDistance,
 	formatDuration,
@@ -74,6 +75,7 @@ describe('samePlace / withDistance', () => {
 
 describe('withNetworkDistance', () => {
 	afterEach(() => {
+		clearRouteCache();
 		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
 	});
@@ -131,5 +133,25 @@ describe('withNetworkDistance', () => {
 		expect(byId.nyc!.km).toBe(6000);
 		expect(byId.nyc!.durationSec).toBe(216_000);
 		expect(byId.nyc!.geometry).toHaveLength(2);
+	});
+
+	it('reuses a cached route for the same mode and pair', async () => {
+		const fetchMock = vi.fn(async () =>
+			new Response(
+				JSON.stringify({
+					code: 'Ok',
+					routes: [{ distance: 1000, duration: 120, geometry: { type: 'LineString', coordinates: [] } }],
+				}),
+				{ status: 200 },
+			),
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		await withNetworkDistance([{ id: 'london', ...london }], paris, 'driving');
+		await withNetworkDistance([{ id: 'london', ...london }], paris, 'driving');
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+
+		await withNetworkDistance([{ id: 'london', ...london }], paris, 'walking');
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 });

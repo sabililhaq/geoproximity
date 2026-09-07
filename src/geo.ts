@@ -47,6 +47,24 @@ export function withDistance<T extends Coord>(
 
 export type RouteError = 'network' | 'no_route' | 'unknown';
 
+function isAbortError(error: unknown): boolean {
+	return error instanceof DOMException && error.name === 'AbortError';
+}
+
+function coordKey(c: Coord): string {
+	return `${c.lat.toFixed(5)},${c.lon.toFixed(5)}`;
+}
+
+function routeCacheKey(mode: string, a: Coord, b: Coord): string {
+	return `${mode}:${coordKey(a)}:${coordKey(b)}`;
+}
+
+const routeCache = new Map<string, RouteResult>();
+
+export function clearRouteCache(): void {
+	routeCache.clear();
+}
+
 export type RouteResult = {
 	km: number;
 	/** Travel time in seconds when the router returned one. */
@@ -62,19 +80,31 @@ export async function getNetworkDistance(
 	mode: 'driving' | 'walking' = 'driving',
 	signal?: AbortSignal,
 ): Promise<RouteResult> {
+	const key = routeCacheKey(mode, a, b);
+	const cached = routeCache.get(key);
+	if (cached) return cached;
+
+	const store = (result: RouteResult): RouteResult => {
+		if (!signal?.aborted) routeCache.set(key, result);
+		return result;
+	};
+
 	try {
 		const url = `https://router.project-osrm.org/route/v1/${mode}/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson`;
 		let response: Response;
 		try {
 			response = await fetch(url, { signal });
 		} catch (err) {
+			if (isAbortError(err) || signal?.aborted) {
+				return { km: distanceKm(a, b), error: 'network' };
+			}
 			console.warn('Network error reaching OSRM:', err);
-			return { km: distanceKm(a, b), error: 'network' };
+			return store({ km: distanceKm(a, b), error: 'network' });
 		}
 
 		if (!response.ok) {
 			console.warn(`OSRM HTTP error: ${response.status}`);
-			return { km: distanceKm(a, b), error: 'network' };
+			return store({ km: distanceKm(a, b), error: 'network' });
 		}
 
 		const data = await response.json() as {
@@ -88,12 +118,12 @@ export async function getNetworkDistance(
 
 		if (data.code !== 'Ok') {
 			console.warn(`OSRM error code: ${data.code}`);
-			return { km: distanceKm(a, b), error: 'no_route' };
+			return store({ km: distanceKm(a, b), error: 'no_route' });
 		}
 
 		if (!data.routes?.[0]) {
 			console.warn('OSRM returned no routes');
-			return { km: distanceKm(a, b), error: 'no_route' };
+			return store({ km: distanceKm(a, b), error: 'no_route' });
 		}
 
 		const route = data.routes[0];
@@ -101,14 +131,17 @@ export async function getNetworkDistance(
 			typeof route.duration === 'number' && Number.isFinite(route.duration)
 				? route.duration
 				: undefined;
-		return {
+		return store({
 			km: route.distance / 1000,
 			durationSec,
 			geometry: route.geometry?.coordinates,
-		};
+		});
 	} catch (error) {
+		if (isAbortError(error) || signal?.aborted) {
+			return { km: distanceKm(a, b), error: 'unknown' };
+		}
 		console.warn('Unexpected error during routing:', error);
-		return { km: distanceKm(a, b), error: 'unknown' };
+		return store({ km: distanceKm(a, b), error: 'unknown' });
 	}
 }
 
