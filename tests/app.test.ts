@@ -148,6 +148,26 @@ describe("location list keyboard navigation", () => {
   });
 });
 
+describe("inline rename", () => {
+  it("renames a location on double-click", () => {
+    const { root, stop } = mountWithHash({
+      destination: dest,
+      locations: [london],
+    });
+    cleanups.push(stop);
+
+    const name = rows(root)[0]!.querySelector(".px-row-name")!;
+    name.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    const input = root.querySelector<HTMLInputElement>(".px-row-rename");
+    expect(input).not.toBeNull();
+    input!.value = "Heathrow";
+    input!.dispatchEvent(new Event("blur"));
+    expect(rows(root)[0]!.querySelector(".px-row-name")!.textContent).toBe(
+      "Heathrow",
+    );
+  });
+});
+
 describe("multiple instances", () => {
   it("keep independent state and unique element ids", () => {
     const a = document.createElement("div");

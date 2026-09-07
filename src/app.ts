@@ -898,6 +898,10 @@ export function startProximity(
       copy.className = "px-dest-copy";
       const title = document.createElement("strong");
       title.textContent = dest.name;
+      title.title = "Double-click to rename";
+      title.addEventListener("dblclick", (event) =>
+        beginRename(dest, title, event),
+      );
       const meta = document.createElement("span");
       meta.textContent = `${dest.lat.toFixed(4)}, ${dest.lon.toFixed(4)}`;
       copy.append(title, meta);
@@ -1007,7 +1011,10 @@ export function startProximity(
       const name = document.createElement("span");
       name.className = "px-row-name";
       name.textContent = place.name;
-      name.title = place.name;
+      name.title = `${place.name} · double-click to rename`;
+      name.addEventListener("dblclick", (event) =>
+        beginRename(place, name, event),
+      );
       const dist = document.createElement("span");
       dist.className = place.error ? "px-row-dist is-approx" : "px-row-dist";
       dist.textContent = kmLabel || "—";
@@ -1030,7 +1037,8 @@ export function startProximity(
         );
         render();
       });
-      row.addEventListener("click", () => {
+      row.addEventListener("click", (event) => {
+        if (event.detail > 1) return;
         selectLocation(place.id, ranked, { fit: true });
       });
       // Keyboard handling lives on the list (one listener, bubbling), so
@@ -1146,6 +1154,42 @@ export function startProximity(
     );
     render();
     fit();
+  }
+
+  function beginRename(place: Place, el: HTMLElement, event?: Event) {
+    event?.stopPropagation();
+    event?.preventDefault();
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "px-row-rename";
+    input.value = place.name;
+    input.setAttribute("aria-label", `Rename ${place.name}`);
+    const commit = () => {
+      const next = input.value.trim();
+      if (next && next !== place.name) {
+        if (state.destination?.id === place.id) state.destination.name = next;
+        const loc = state.locations.find((item) => item.id === place.id);
+        if (loc) loc.name = next;
+      }
+      render();
+      focusRow(place.id);
+    };
+    input.addEventListener("click", (e) => e.stopPropagation());
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        input.blur();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        input.value = place.name;
+        input.blur();
+      }
+    });
+    input.addEventListener("blur", commit);
+    el.replaceWith(input);
+    input.focus();
+    input.select();
   }
 
   function addLocation(place: Place) {
