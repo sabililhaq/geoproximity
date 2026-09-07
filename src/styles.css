@@ -782,6 +782,22 @@ summary:focus-visible,
 	transform: scale(1.08);
 }
 
+.leaflet-tooltip.px-place-label {
+	padding: 0.15rem 0.4rem;
+	border: 0;
+	border-radius: 4px;
+	background: var(--px-fill);
+	color: var(--px-ink);
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+	font-size: 0.72rem;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.leaflet-tooltip.px-place-label::before {
+	display: none;
+}
+
 .px-edge {
 	stroke-linecap: round;
 	stroke-linejoin: round;

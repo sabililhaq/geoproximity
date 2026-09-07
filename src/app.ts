@@ -333,6 +333,9 @@ export function startProximity(
   let currentRanked: RankedPlace[] = [];
   let distanceAbort: AbortController | null = null;
   let lastRankAnnouncement = "";
+  const LABEL_ZOOM = 13;
+  let labelsPermanent = false;
+  let overlayMarkers = new Map<string, L.Marker>();
   /** Driving/walking default to time; straight-line always ranks by distance. */
   let rankByTime = true;
   const state: ProximityState = {
@@ -849,8 +852,10 @@ export function startProximity(
     }
     applyRouteAnimation();
 
+    labelsPermanent = map.getZoom() >= LABEL_ZOOM;
     overlay.clearLayers();
     const markers = new Map<string, L.Marker>();
+    overlayMarkers = markers;
     let selectedPolyline: L.Polyline | null = null;
     const hasSelection = Boolean(selectedLocationId);
 
@@ -874,6 +879,15 @@ export function startProximity(
       if (destEl) {
         destEl.setAttribute("role", "img");
         destEl.setAttribute("aria-label", `Destination, ${dest.name}`);
+      }
+      if (labelsPermanent) {
+        destMarker.bindTooltip(popupContent(dest.name), {
+          direction: "right",
+          offset: [14, 0],
+          permanent: true,
+          className: "px-place-label",
+          opacity: 0.95,
+        });
       }
       markers.set(dest.id, destMarker);
 
@@ -932,6 +946,15 @@ export function startProximity(
             ? `${place.name}, rank ${index + 1}, ${kmLabel}`
             : `${place.name}, rank ${index + 1}`,
         );
+      }
+      if (labelsPermanent) {
+        locMarker.bindTooltip(popupContent(place.name), {
+          direction: "right",
+          offset: [14, 0],
+          permanent: true,
+          className: "px-place-label",
+          opacity: 0.95,
+        });
       }
       markers.set(place.id, locMarker);
       if (dest) {
@@ -1338,6 +1361,15 @@ export function startProximity(
   );
   motionQuery.addEventListener("change", applyRouteAnimation, {
     signal: session.signal,
+  });
+
+  map.on("zoomend", () => {
+    const next = map.getZoom() >= LABEL_ZOOM;
+    if (next === labelsPermanent) return;
+    if (state.destination || state.locations.length > 0) {
+      doRender(currentRanked.length ? currentRanked : rankedLocations());
+      if (selectedLocationId) overlayMarkers.get(selectedLocationId)?.openPopup();
+    }
   });
 
   map.on("click", (event: L.LeafletMouseEvent) => {
