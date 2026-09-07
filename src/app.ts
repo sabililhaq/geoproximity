@@ -1,4 +1,4 @@
-import L from "leaflet";
+import L from 'leaflet';
 import {
   formatDistance,
   formatDuration,
@@ -8,21 +8,16 @@ import {
   withDistance,
   withNetworkDistance,
   type RouteError,
-} from "./geo";
-import { reverseGeocode } from "./geocoder";
-import { parseProximityJson, type ProximityFile } from "./io";
-import { handleLocationListKeyboard } from "./list-keyboard";
-import { accentColor, destIcon, locIcon, popupContent } from "./markers";
-import { bindSearch } from "./search";
-import {
-  encodeShareHash,
-  readShareHash,
-  readStoredState,
-  writeStoredState,
-} from "./share";
-import sampleProximity from "./sample-proximity.json";
-import { cartoTileUrl, resolveCartoApiKey } from "./basemap";
-import type { Place, ProximityState, DistanceMode } from "./types";
+} from './geo';
+import { reverseGeocode } from './geocoder';
+import { parseProximityJson, type ProximityFile } from './io';
+import { handleLocationListKeyboard } from './list-keyboard';
+import { accentColor, destIcon, locIcon, popupContent } from './markers';
+import { bindSearch } from './search';
+import { encodeShareHash, readShareHash, readStoredState, writeStoredState } from './share';
+import sampleProximity from './sample-proximity.json';
+import { cartoTileUrl, resolveCartoApiKey } from './basemap';
+import type { Place, ProximityState, DistanceMode } from './types';
 
 type RankedPlace = Place & {
   km: number;
@@ -41,21 +36,21 @@ let instanceCount = 0;
 function scopeIds(root: HTMLElement): void {
   const suffix = `-${++instanceCount}`;
   const renamed = new Map<string, string>();
-  for (const el of root.querySelectorAll<HTMLElement>("[id]")) {
+  for (const el of root.querySelectorAll<HTMLElement>('[id]')) {
     const next = `${el.id}${suffix}`;
     renamed.set(el.id, next);
     el.id = next;
   }
-  for (const el of root.querySelectorAll<HTMLElement>("[for]")) {
-    const target = renamed.get(el.getAttribute("for") ?? "");
-    if (target) el.setAttribute("for", target);
+  for (const el of root.querySelectorAll<HTMLElement>('[for]')) {
+    const target = renamed.get(el.getAttribute('for') ?? '');
+    if (target) el.setAttribute('for', target);
   }
-  for (const el of root.querySelectorAll<HTMLElement>("[aria-describedby]")) {
-    const ids = (el.getAttribute("aria-describedby") ?? "")
+  for (const el of root.querySelectorAll<HTMLElement>('[aria-describedby]')) {
+    const ids = (el.getAttribute('aria-describedby') ?? '')
       .split(/\s+/)
       .filter(Boolean)
       .map((id) => renamed.get(id) ?? id);
-    el.setAttribute("aria-describedby", ids.join(" "));
+    el.setAttribute('aria-describedby', ids.join(' '));
   }
 }
 
@@ -97,58 +92,47 @@ export function startProximity(
   root: HTMLElement,
   options: StartProximityOptions = {},
 ): ProximityHandle {
-  const host = qs(root, "[data-proximity]");
-  const mapEl = qs(root, "[data-px-map]");
-  const destForm = qs<HTMLFormElement>(root, "[data-dest-form]");
-  const destInput = qs<HTMLInputElement>(root, "[data-dest-input]");
-  const destResults = qs(root, "[data-dest-results]");
-  const destTools = qs(root, "[data-dest-tools]");
-  const destCurrent = qs(root, "[data-dest-current]");
-  const locForm = qs<HTMLFormElement>(root, "[data-loc-form]");
-  const locInput = qs<HTMLInputElement>(root, "[data-loc-input]");
-  const locResults = qs(root, "[data-loc-results]");
-  const locList = qs<HTMLUListElement>(root, "[data-loc-list]");
-  const locEmpty = qs(root, "[data-loc-empty]");
-  const useLocationBtn = qs<HTMLButtonElement>(root, "[data-use-location]");
-  const fitBtn = qs<HTMLButtonElement>(root, "[data-fit]");
-  const clearBtn = qs<HTMLButtonElement>(root, "[data-clear]");
-  const resizer = root.querySelector("[data-px-resizer]") as HTMLElement | null;
-  const layout = root.querySelector(".px-layout") as HTMLElement | null;
-  const shareBtn = qs<HTMLButtonElement>(root, "[data-share]");
-  const sampleButtons = Array.from(
-    root.querySelectorAll<HTMLButtonElement>("[data-sample]"),
-  );
-  const ioStatus = qs(root, "[data-io-status]");
-  const hint = qs(root, "[data-px-hint]");
-  const empty = qs(root, "[data-px-empty]");
+  const host = qs(root, '[data-proximity]');
+  const mapEl = qs(root, '[data-px-map]');
+  const destForm = qs<HTMLFormElement>(root, '[data-dest-form]');
+  const destInput = qs<HTMLInputElement>(root, '[data-dest-input]');
+  const destResults = qs(root, '[data-dest-results]');
+  const destTools = qs(root, '[data-dest-tools]');
+  const destCurrent = qs(root, '[data-dest-current]');
+  const locForm = qs<HTMLFormElement>(root, '[data-loc-form]');
+  const locInput = qs<HTMLInputElement>(root, '[data-loc-input]');
+  const locResults = qs(root, '[data-loc-results]');
+  const locList = qs<HTMLUListElement>(root, '[data-loc-list]');
+  const locEmpty = qs(root, '[data-loc-empty]');
+  const useLocationBtn = qs<HTMLButtonElement>(root, '[data-use-location]');
+  const fitBtn = qs<HTMLButtonElement>(root, '[data-fit]');
+  const clearBtn = qs<HTMLButtonElement>(root, '[data-clear]');
+  const resizer = root.querySelector('[data-px-resizer]') as HTMLElement | null;
+  const layout = root.querySelector('.px-layout') as HTMLElement | null;
+  const shareBtn = qs<HTMLButtonElement>(root, '[data-share]');
+  const sampleButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-sample]'));
+  const ioStatus = qs(root, '[data-io-status]');
+  const hint = qs(root, '[data-px-hint]');
+  const empty = qs(root, '[data-px-empty]');
   const routeModeButtons = Array.from(
-    root.querySelectorAll<HTMLButtonElement>("[data-route-mode]"),
+    root.querySelectorAll<HTMLButtonElement>('[data-route-mode]'),
   );
-  const rankByGroup = root.querySelector("[data-rank-by]") as HTMLElement | null;
+  const rankByGroup = root.querySelector('[data-rank-by]') as HTMLElement | null;
   const rankMetricButtons = Array.from(
-    root.querySelectorAll<HTMLButtonElement>("[data-rank-metric]"),
+    root.querySelectorAll<HTMLButtonElement>('[data-rank-metric]'),
   );
-  const routeAnimationToggle = qs<HTMLButtonElement>(
-    root,
-    "[data-route-animation]",
-  );
-  const routeAnimationHelp = qs(root, "[data-route-animation-help]");
-  const routeAnimationReverseToggle = qs<HTMLButtonElement>(
-    root,
-    "[data-route-animation-reverse]",
-  );
-  const routeAnimationReverseHelp = qs(
-    root,
-    "[data-route-animation-reverse-help]",
-  );
-  const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const routeAnimationToggle = qs<HTMLButtonElement>(root, '[data-route-animation]');
+  const routeAnimationHelp = qs(root, '[data-route-animation-help]');
+  const routeAnimationReverseToggle = qs<HTMLButtonElement>(root, '[data-route-animation-reverse]');
+  const routeAnimationReverseHelp = qs(root, '[data-route-animation-reverse-help]');
+  const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   let statusTimer = 0;
   let isLoadingDistances = false;
   let selectedLocationId: string | null = null;
   let keyboardFocusedRowId: string | null = null;
   let currentRanked: RankedPlace[] = [];
   let distanceAbort: AbortController | null = null;
-  let lastRankAnnouncement = "";
+  let lastRankAnnouncement = '';
   const LABEL_ZOOM = 13;
   let labelsPermanent = false;
   let overlayMarkers = new Map<string, L.Marker>();
@@ -157,7 +141,7 @@ export function startProximity(
   const state: ProximityState = {
     destination: null,
     locations: [],
-    distanceMode: "straight",
+    distanceMode: 'straight',
   };
   scopeIds(root);
   shareBtn.hidden = !options.share;
@@ -168,18 +152,17 @@ export function startProximity(
   const cartoApiKey = resolveCartoApiKey(options.cartoApiKey);
   let tileErrorShown = false;
   const addTiles = () => {
-    const layer = L.tileLayer(
-      cartoTileUrl(document.documentElement.dataset.theme, cartoApiKey),
-      { maxZoom: 19, subdomains: "abcd", attribution: CARTO_ATTRIBUTION },
-    ).addTo(map);
-    layer.on("tileerror", () => {
+    const layer = L.tileLayer(cartoTileUrl(document.documentElement.dataset.theme, cartoApiKey), {
+      maxZoom: 19,
+      subdomains: 'abcd',
+      attribution: CARTO_ATTRIBUTION,
+    }).addTo(map);
+    layer.on('tileerror', () => {
       if (tileErrorShown) return;
       tileErrorShown = true;
-      showStatus(
-        "Map tiles failed to load · check your connection or CARTO key",
-      );
+      showStatus('Map tiles failed to load · check your connection or CARTO key');
     });
-    layer.on("load", () => {
+    layer.on('load', () => {
       tileErrorShown = false;
     });
     return layer;
@@ -195,7 +178,7 @@ export function startProximity(
   });
   themeObs.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ["data-theme"],
+    attributeFilter: ['data-theme'],
   });
 
   const resize = new ResizeObserver(() => map.invalidateSize());
@@ -205,36 +188,34 @@ export function startProximity(
     let startPos = 0;
     let startSize = 0;
 
-    resizer.addEventListener("pointerdown", (e) => {
+    resizer.addEventListener('pointerdown', (e) => {
       isDragging = true;
       resizer.setPointerCapture(e.pointerId);
-      isVertical = getComputedStyle(resizer).cursor === "row-resize";
+      isVertical = getComputedStyle(resizer).cursor === 'row-resize';
       startPos = isVertical ? e.clientY : e.clientX;
       startSize = isVertical
-        ? layout.querySelector(".px-sidebar")?.getBoundingClientRect().height ||
-          0
-        : layout.querySelector(".px-sidebar")?.getBoundingClientRect().width ||
-          0;
+        ? layout.querySelector('.px-sidebar')?.getBoundingClientRect().height || 0
+        : layout.querySelector('.px-sidebar')?.getBoundingClientRect().width || 0;
       e.preventDefault();
     });
 
-    resizer.addEventListener("pointermove", (e) => {
+    resizer.addEventListener('pointermove', (e) => {
       if (!isDragging) return;
       const delta = isVertical ? startPos - e.clientY : e.clientX - startPos;
       const newSize = Math.max(200, startSize + delta);
       if (isVertical) {
-        layout.style.setProperty("--px-sidebar-h", `${newSize}px`);
+        layout.style.setProperty('--px-sidebar-h', `${newSize}px`);
       } else {
-        layout.style.setProperty("--px-sidebar-w", `${newSize}px`);
+        layout.style.setProperty('--px-sidebar-w', `${newSize}px`);
       }
       map.invalidateSize();
     });
 
-    resizer.addEventListener("pointerup", (e) => {
+    resizer.addEventListener('pointerup', (e) => {
       isDragging = false;
       resizer.releasePointerCapture(e.pointerId);
     });
-    resizer.addEventListener("pointercancel", (e) => {
+    resizer.addEventListener('pointercancel', (e) => {
       isDragging = false;
       resizer.releasePointerCapture(e.pointerId);
     });
@@ -246,30 +227,30 @@ export function startProximity(
   const syncKeyboardViewport = () => {
     if (!visualViewport) return;
     const keyboardOpen = visualViewport.height < window.innerHeight - 120;
-    host.classList.toggle("is-keyboard-open", keyboardOpen);
+    host.classList.toggle('is-keyboard-open', keyboardOpen);
     if (keyboardOpen) {
       host.style.height = `${Math.max(1, visualViewport.height)}px`;
     } else {
-      host.style.removeProperty("height");
+      host.style.removeProperty('height');
     }
     map.invalidateSize();
   };
   if (visualViewport) {
-    visualViewport.addEventListener("resize", syncKeyboardViewport, {
+    visualViewport.addEventListener('resize', syncKeyboardViewport, {
       signal: session.signal,
     });
-    visualViewport.addEventListener("scroll", syncKeyboardViewport, {
+    visualViewport.addEventListener('scroll', syncKeyboardViewport, {
       signal: session.signal,
     });
   }
   host.addEventListener(
-    "focusin",
+    'focusin',
     (event) => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement)) return;
       window.setTimeout(() => {
         syncKeyboardViewport();
-        target.scrollIntoView({ block: "nearest", inline: "nearest" });
+        target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       }, 80);
     },
     { signal: session.signal },
@@ -278,9 +259,7 @@ export function startProximity(
   /** Move DOM focus to the rendered row for `placeId`, if it exists. */
   function focusRow(placeId: string | null) {
     if (!placeId) return;
-    const row = locList.querySelector<HTMLElement>(
-      `[data-place-id="${placeId}"]`,
-    );
+    const row = locList.querySelector<HTMLElement>(`[data-place-id="${placeId}"]`);
     row?.focus();
   }
 
@@ -296,10 +275,7 @@ export function startProximity(
     focusRow(place.id);
   }
 
-  function onLocationListKeydown(
-    event: KeyboardEvent,
-    ranked: RankedPlace[],
-  ) {
+  function onLocationListKeydown(event: KeyboardEvent, ranked: RankedPlace[]) {
     handleLocationListKeyboard(event, ranked, {
       focusedId: keyboardFocusedRowId,
       onMove: (index, list) => focusRowByIndex(index, list),
@@ -316,9 +292,7 @@ export function startProximity(
         const removed = state.locations.find((item) => item.id === removedId);
         const snap = snapshotState();
         if (selectedLocationId === removedId) selectedLocationId = null;
-        state.locations = state.locations.filter(
-          (item) => item.id !== removedId,
-        );
+        state.locations = state.locations.filter((item) => item.id !== removedId);
         keyboardFocusedRowId = neighbour?.id ?? null;
         render();
         focusRow(keyboardFocusedRowId);
@@ -328,15 +302,15 @@ export function startProximity(
   }
 
   function sortRanked(places: RankedPlace[]): RankedPlace[] {
-    const byTime = rankByTime && state.distanceMode !== "straight";
+    const byTime = rankByTime && state.distanceMode !== 'straight';
     return [...places].sort((a, b) => {
       if (byTime) {
         const at =
-          typeof a.durationSec === "number" && Number.isFinite(a.durationSec)
+          typeof a.durationSec === 'number' && Number.isFinite(a.durationSec)
             ? a.durationSec
             : Infinity;
         const bt =
-          typeof b.durationSec === "number" && Number.isFinite(b.durationSec)
+          typeof b.durationSec === 'number' && Number.isFinite(b.durationSec)
             ? b.durationSec
             : Infinity;
         if (at !== bt) return at - bt;
@@ -348,11 +322,11 @@ export function startProximity(
   }
 
   function placeMetricLabel(place: RankedPlace): string {
-    if (!Number.isFinite(place.km)) return "";
-    const dist = `${place.error ? "≈ " : ""}${formatDistance(place.km)}`;
+    if (!Number.isFinite(place.km)) return '';
+    const dist = `${place.error ? '≈ ' : ''}${formatDistance(place.km)}`;
     if (
-      state.distanceMode !== "straight" &&
-      typeof place.durationSec === "number" &&
+      state.distanceMode !== 'straight' &&
+      typeof place.durationSec === 'number' &&
       Number.isFinite(place.durationSec)
     ) {
       return `${formatDuration(place.durationSec)} · ${dist}`;
@@ -367,32 +341,21 @@ export function startProximity(
     return sortRanked(withDistance(state.locations, state.destination));
   }
 
-  async function rankedLocationsAsync(
-    signal: AbortSignal,
-  ): Promise<RankedPlace[]> {
+  async function rankedLocationsAsync(signal: AbortSignal): Promise<RankedPlace[]> {
     if (!state.destination) {
       return state.locations.map((place) => ({ ...place, km: Number.NaN }));
     }
-    if (state.distanceMode === "straight") {
+    if (state.distanceMode === 'straight') {
       return rankedLocations();
     }
-    const mode = state.distanceMode === "driving" ? "driving" : "walking";
-    return sortRanked(
-      await withNetworkDistance(
-        state.locations,
-        state.destination,
-        mode,
-        signal,
-      ),
-    );
+    const mode = state.distanceMode === 'driving' ? 'driving' : 'walking';
+    return sortRanked(await withNetworkDistance(state.locations, state.destination, mode, signal));
   }
 
   function fit(force = true) {
     const points: L.LatLngExpression[] = [];
-    if (state.destination)
-      points.push([state.destination.lat, state.destination.lon]);
-    for (const place of state.locations)
-      points.push([place.lat, place.lon]);
+    if (state.destination) points.push([state.destination.lat, state.destination.lon]);
+    for (const place of state.locations) points.push([place.lat, place.lon]);
     if (points.length === 0) {
       if (force) map.setView([20, 0], 2);
       return;
@@ -405,17 +368,17 @@ export function startProximity(
   }
 
   function modeLabel(mode: DistanceMode): string {
-    if (mode === "driving") return "driving";
-    if (mode === "walking") return "walking";
-    return "straight-line";
+    if (mode === 'driving') return 'driving';
+    if (mode === 'walking') return 'walking';
+    return 'straight-line';
   }
 
   function switchOn(button: HTMLButtonElement): boolean {
-    return button.getAttribute("aria-checked") === "true";
+    return button.getAttribute('aria-checked') === 'true';
   }
 
   function setSwitchOn(button: HTMLButtonElement, on: boolean) {
-    button.setAttribute("aria-checked", on ? "true" : "false");
+    button.setAttribute('aria-checked', on ? 'true' : 'false');
   }
 
   function setSwitchUnavailable(
@@ -424,26 +387,20 @@ export function startProximity(
     help: HTMLElement,
     description: string,
   ) {
-    button.setAttribute("aria-disabled", unavailable ? "true" : "false");
+    button.setAttribute('aria-disabled', unavailable ? 'true' : 'false');
     button.title = description;
     help.textContent = description;
   }
 
   function applyRouteAnimation() {
-    const routed = state.distanceMode !== "straight";
+    const routed = state.distanceMode !== 'straight';
     const reduced = motionQuery.matches;
     const animateOn = switchOn(routeAnimationToggle);
     const reverseOn = switchOn(routeAnimationReverseToggle);
     const animating = routed && animateOn && !reduced;
-    const reducedHelp =
-      "Unavailable because your system prefers reduced motion.";
+    const reducedHelp = 'Unavailable because your system prefers reduced motion.';
     if (reduced) {
-      setSwitchUnavailable(
-        routeAnimationToggle,
-        true,
-        routeAnimationHelp,
-        reducedHelp,
-      );
+      setSwitchUnavailable(routeAnimationToggle, true, routeAnimationHelp, reducedHelp);
       setSwitchUnavailable(
         routeAnimationReverseToggle,
         true,
@@ -455,49 +412,46 @@ export function startProximity(
         routeAnimationToggle,
         true,
         routeAnimationHelp,
-        "Available for driving and walking routes.",
+        'Available for driving and walking routes.',
       );
       setSwitchUnavailable(
         routeAnimationReverseToggle,
         true,
         routeAnimationReverseHelp,
-        "Turn on Animate routes to reverse direction. Available for driving and walking routes.",
+        'Turn on Animate routes to reverse direction. Available for driving and walking routes.',
       );
     } else {
       setSwitchUnavailable(
         routeAnimationToggle,
         false,
         routeAnimationHelp,
-        "Flows dashes along routes from locations toward the destination.",
+        'Flows dashes along routes from locations toward the destination.',
       );
       setSwitchUnavailable(
         routeAnimationReverseToggle,
         !animateOn,
         routeAnimationReverseHelp,
         animateOn
-          ? "Flows dashes from the destination toward locations."
-          : "Turn on Animate routes to reverse direction.",
+          ? 'Flows dashes from the destination toward locations.'
+          : 'Turn on Animate routes to reverse direction.',
       );
     }
-    host.classList.toggle("px-animate-routes", animating);
-    host.classList.toggle("px-animate-routes-reverse", animating && reverseOn);
+    host.classList.toggle('px-animate-routes', animating);
+    host.classList.toggle('px-animate-routes-reverse', animating && reverseOn);
   }
 
   function render() {
-    if (state.distanceMode !== "straight") {
+    if (state.distanceMode !== 'straight') {
       void renderAsync();
     } else {
       doRender(rankedLocations());
     }
   }
 
-  async function fillRouteGeometries(
-    ranked: RankedPlace[],
-    signal: AbortSignal,
-  ) {
+  async function fillRouteGeometries(ranked: RankedPlace[], signal: AbortSignal) {
     const dest = state.destination;
-    if (!dest || state.distanceMode === "straight") return;
-    const mode = state.distanceMode === "driving" ? "driving" : "walking";
+    if (!dest || state.distanceMode === 'straight') return;
+    const mode = state.distanceMode === 'driving' ? 'driving' : 'walking';
     const pending = ranked.filter((place) => !place.geometry && !place.error);
     if (pending.length === 0) return;
 
@@ -531,7 +485,7 @@ export function startProximity(
     for (const btn of routeModeButtons) {
       btn.disabled = true;
     }
-    host.classList.add("is-routing");
+    host.classList.add('is-routing');
     hint.hidden = false;
     hint.textContent = `Fetching ${modeLabel(state.distanceMode)} routes…`;
 
@@ -548,13 +502,13 @@ export function startProximity(
         );
       }
       isLoadingDistances = false;
-      host.classList.remove("is-routing");
+      host.classList.remove('is-routing');
       for (const btn of routeModeButtons) {
         btn.disabled = false;
       }
       doRender(ranked);
       await fillRouteGeometries(ranked, signal);
-    } catch (err) {
+    } catch {
       if (!signal.aborted) {
         hint.textContent = `Could not fetch ${modeLabel(state.distanceMode)} routes · showing straight-line distance`;
       }
@@ -562,7 +516,7 @@ export function startProximity(
       if (distanceAbort === controller) {
         isLoadingDistances = false;
         distanceAbort = null;
-        host.classList.remove("is-routing");
+        host.classList.remove('is-routing');
         for (const btn of routeModeButtons) {
           btn.disabled = false;
         }
@@ -576,9 +530,7 @@ export function startProximity(
     markers: Map<string, L.Marker>,
   ) {
     if (dest && place.geometry && place.geometry.length > 1) {
-      const latlngs = place.geometry.map(
-        ([lon, lat]) => [lat, lon] as L.LatLngExpression,
-      );
+      const latlngs = place.geometry.map(([lon, lat]) => [lat, lon] as L.LatLngExpression);
       map.fitBounds(L.latLngBounds(latlngs), {
         padding: [48, 48],
         maxZoom: 14,
@@ -589,11 +541,7 @@ export function startProximity(
     markers.get(place.id)?.openPopup();
   }
 
-  function selectLocation(
-    placeId: string,
-    ranked: RankedPlace[],
-    selectOpts?: { fit?: boolean },
-  ) {
+  function selectLocation(placeId: string, ranked: RankedPlace[], selectOpts?: { fit?: boolean }) {
     const nextId = selectedLocationId === placeId ? null : placeId;
     selectedLocationId = nextId;
     doRender(ranked, {
@@ -602,43 +550,34 @@ export function startProximity(
   }
 
   locList.addEventListener(
-    "keydown",
+    'keydown',
     (e) => {
       onLocationListKeydown(e, currentRanked);
     },
     { signal: session.signal },
   );
 
-  function doRender(
-    ranked: RankedPlace[],
-    renderOpts?: { fitSelection?: boolean },
-  ) {
+  function doRender(ranked: RankedPlace[], renderOpts?: { fitSelection?: boolean }) {
     currentRanked = ranked;
     const dest = state.destination;
     const color = accentColor();
 
-    if (
-      selectedLocationId &&
-      !ranked.some((place) => place.id === selectedLocationId)
-    ) {
+    if (selectedLocationId && !ranked.some((place) => place.id === selectedLocationId)) {
       selectedLocationId = null;
     }
 
     for (const btn of routeModeButtons) {
       btn.setAttribute(
-        "aria-pressed",
-        btn.dataset.routeMode === state.distanceMode ? "true" : "false",
+        'aria-pressed',
+        btn.dataset.routeMode === state.distanceMode ? 'true' : 'false',
       );
     }
     if (rankByGroup) {
-      rankByGroup.hidden = state.distanceMode === "straight";
+      rankByGroup.hidden = state.distanceMode === 'straight';
     }
     for (const btn of rankMetricButtons) {
-      const isTime = btn.dataset.rankMetric === "time";
-      btn.setAttribute(
-        "aria-pressed",
-        isTime === rankByTime ? "true" : "false",
-      );
+      const isTime = btn.dataset.rankMetric === 'time';
+      btn.setAttribute('aria-pressed', isTime === rankByTime ? 'true' : 'false');
     }
     applyRouteAnimation();
 
@@ -667,41 +606,39 @@ export function startProximity(
         .addTo(overlay);
       const destEl = destMarker.getElement();
       if (destEl) {
-        destEl.setAttribute("role", "img");
-        destEl.setAttribute("aria-label", `Destination, ${dest.name}`);
+        destEl.setAttribute('role', 'img');
+        destEl.setAttribute('aria-label', `Destination, ${dest.name}`);
       }
       if (labelsPermanent) {
         destMarker.bindTooltip(popupContent(dest.name), {
-          direction: "right",
+          direction: 'right',
           offset: [14, 0],
           permanent: true,
-          className: "px-place-label",
+          className: 'px-place-label',
           opacity: 0.95,
         });
       }
       markers.set(dest.id, destMarker);
 
       destCurrent.hidden = false;
-      destCurrent.classList.add("has-place");
+      destCurrent.classList.add('has-place');
       destCurrent.replaceChildren();
-      const copy = document.createElement("div");
-      copy.className = "px-dest-copy";
-      const title = document.createElement("strong");
+      const copy = document.createElement('div');
+      copy.className = 'px-dest-copy';
+      const title = document.createElement('strong');
       title.textContent = dest.name;
-      title.title = "Double-click to rename";
-      title.addEventListener("dblclick", (event) =>
-        beginRename(dest, title, event),
-      );
-      const meta = document.createElement("span");
+      title.title = 'Double-click to rename';
+      title.addEventListener('dblclick', (event) => beginRename(dest, title, event));
+      const meta = document.createElement('span');
       meta.textContent = `${dest.lat.toFixed(4)}, ${dest.lon.toFixed(4)}`;
       copy.append(title, meta);
-      copy.title = "Show on map";
-      copy.addEventListener("click", () => focusPlace(dest));
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "px-dest-remove";
-      remove.textContent = "Remove";
-      remove.addEventListener("click", () => {
+      copy.title = 'Show on map';
+      copy.addEventListener('click', () => focusPlace(dest));
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'px-dest-remove';
+      remove.textContent = 'Remove';
+      remove.addEventListener('click', () => {
         const snap = snapshotState();
         const name = dest.name;
         selectedLocationId = null;
@@ -712,7 +649,7 @@ export function startProximity(
       destCurrent.append(copy, remove);
     } else {
       destCurrent.hidden = true;
-      destCurrent.classList.remove("has-place");
+      destCurrent.classList.remove('has-place');
       destCurrent.replaceChildren();
     }
 
@@ -727,18 +664,16 @@ export function startProximity(
         zIndexOffset: isSelected ? 550 : 400,
         title: place.name,
       })
-        .bindPopup(
-          popupContent(kmLabel ? `${place.name} · ${kmLabel}` : place.name),
-        )
-        .on("click", () => {
+        .bindPopup(popupContent(kmLabel ? `${place.name} · ${kmLabel}` : place.name))
+        .on('click', () => {
           selectLocation(place.id, ranked, { fit: true });
         })
         .addTo(overlay);
       const locEl = locMarker.getElement();
       if (locEl) {
-        locEl.setAttribute("role", "img");
+        locEl.setAttribute('role', 'img');
         locEl.setAttribute(
-          "aria-label",
+          'aria-label',
           kmLabel
             ? `${place.name}, rank ${index + 1}, ${kmLabel}`
             : `${place.name}, rank ${index + 1}`,
@@ -746,10 +681,10 @@ export function startProximity(
       }
       if (labelsPermanent) {
         locMarker.bindTooltip(popupContent(place.name), {
-          direction: "right",
+          direction: 'right',
           offset: [14, 0],
           permanent: true,
-          className: "px-place-label",
+          className: 'px-place-label',
           opacity: 0.95,
         });
       }
@@ -758,16 +693,16 @@ export function startProximity(
         const latlngs: L.LatLngExpression[] = place.geometry
           ? place.geometry.map(([lon, lat]) => [lat, lon])
           : geodesicLatLngs(place, dest);
-        const dashArray = place.geometry ? undefined : "6 6";
+        const dashArray = place.geometry ? undefined : '6 6';
         const dimmed = hasSelection && !isSelected;
-        const routedClass = place.geometry ? " px-edge-routed" : "";
+        const routedClass = place.geometry ? ' px-edge-routed' : '';
         if (isSelected) {
           L.polyline(latlngs, {
             color,
             weight: 10,
             opacity: 0.22,
             dashArray,
-            className: "px-edge px-edge-halo",
+            className: 'px-edge px-edge-halo',
             interactive: false,
           }).addTo(overlay);
         }
@@ -783,7 +718,7 @@ export function startProximity(
               : `px-edge${routedClass}`,
           interactive: true,
         })
-          .on("click", (event) => {
+          .on('click', (event) => {
             L.DomEvent.stopPropagation(event);
             selectLocation(place.id, ranked, { fit: true });
           })
@@ -791,58 +726,52 @@ export function startProximity(
         if (isSelected) selectedPolyline = line;
       }
 
-      const row = document.createElement("li");
-      row.className = isSelected ? "px-row is-selected" : "px-row";
-      row.title = isSelected
-        ? "Click again to clear highlight"
-        : "Highlight route on map";
-      row.setAttribute("role", "option");
-      row.setAttribute("aria-selected", isSelected ? "true" : "false");
-      const rank = document.createElement("span");
-      rank.className = "px-rank";
+      const row = document.createElement('li');
+      row.className = isSelected ? 'px-row is-selected' : 'px-row';
+      row.title = isSelected ? 'Click again to clear highlight' : 'Highlight route on map';
+      row.setAttribute('role', 'option');
+      row.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      const rank = document.createElement('span');
+      rank.className = 'px-rank';
       rank.textContent = String(index + 1);
-      const name = document.createElement("span");
-      name.className = "px-row-name";
+      const name = document.createElement('span');
+      name.className = 'px-row-name';
       name.textContent = place.name;
       name.title = `${place.name} · double-click to rename`;
-      name.addEventListener("dblclick", (event) =>
-        beginRename(place, name, event),
-      );
-      const dist = document.createElement("span");
-      dist.className = place.error ? "px-row-dist is-approx" : "px-row-dist";
-      dist.textContent = kmLabel || "—";
+      name.addEventListener('dblclick', (event) => beginRename(place, name, event));
+      const dist = document.createElement('span');
+      dist.className = place.error ? 'px-row-dist is-approx' : 'px-row-dist';
+      dist.textContent = kmLabel || '—';
       if (place.error) {
         dist.title =
-          place.error === "no_route"
+          place.error === 'no_route'
             ? `No ${modeLabel(state.distanceMode)} route found · straight-line estimate`
-            : "Routing service unavailable · straight-line estimate";
+            : 'Routing service unavailable · straight-line estimate';
       }
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "px-row-remove";
-      remove.setAttribute("aria-label", `Remove ${place.name}`);
-      remove.textContent = "×";
-      remove.addEventListener("click", (event) => {
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'px-row-remove';
+      remove.setAttribute('aria-label', `Remove ${place.name}`);
+      remove.textContent = '×';
+      remove.addEventListener('click', (event) => {
         event.stopPropagation();
         const snap = snapshotState();
         if (selectedLocationId === place.id) selectedLocationId = null;
-        state.locations = state.locations.filter(
-          (item) => item.id !== place.id,
-        );
+        state.locations = state.locations.filter((item) => item.id !== place.id);
         render();
         showUndo(`Removed ${place.name}.`, snap);
       });
-      row.addEventListener("click", (event) => {
+      row.addEventListener('click', (event) => {
         if (event.detail > 1) return;
         selectLocation(place.id, ranked, { fit: true });
       });
       // Keyboard handling lives on the list (one listener, bubbling), so
       // rows only need to report focus.
-      row.addEventListener("focus", () => {
+      row.addEventListener('focus', () => {
         keyboardFocusedRowId = place.id;
       });
       row.dataset.placeId = place.id;
-      row.setAttribute("tabindex", "0");
+      row.setAttribute('tabindex', '0');
       row.append(rank, name, dist, remove);
       locList.append(row);
       if (isSelected) {
@@ -879,15 +808,15 @@ export function startProximity(
       const approx = ranked.filter((place) => place.error).length;
       const label = modeLabel(state.distanceMode);
       hint.textContent =
-        state.distanceMode === "straight"
-          ? "Click a location or path to highlight"
+        state.distanceMode === 'straight'
+          ? 'Click a location or path to highlight'
           : approx === 0
             ? `Showing ${label} routes · click to highlight`
             : approx === ranked.length
               ? `${label.charAt(0).toUpperCase()}${label.slice(1)} routing unavailable · showing straight-line distances`
               : `Showing ${label} routes · ${approx} of ${ranked.length} fell back to straight-line`;
     } else {
-      hint.textContent = "Click the map to set a destination";
+      hint.textContent = 'Click the map to set a destination';
     }
     hint.hidden = !hasNodes;
     empty.hidden = hasNodes;
@@ -895,11 +824,11 @@ export function startProximity(
     clearBtn.disabled = !hasNodes;
 
     if (options.share) {
-      window.history.replaceState(null, "", `#${encodeShareHash(state)}`);
+      window.history.replaceState(null, '', `#${encodeShareHash(state)}`);
     }
     writeStoredState(state);
 
-    const orderKey = `${state.distanceMode}:${rankByTime ? "time" : "km"}:${ranked.map((place) => place.id).join(",")}`;
+    const orderKey = `${state.distanceMode}:${rankByTime ? 'time' : 'km'}:${ranked.map((place) => place.id).join(',')}`;
     if (
       lastRankAnnouncement &&
       orderKey !== lastRankAnnouncement &&
@@ -910,8 +839,7 @@ export function startProximity(
     ) {
       const top = ranked[0]!;
       const metric = placeMetricLabel(top);
-      const by =
-        state.distanceMode === "straight" || !rankByTime ? "distance" : "time";
+      const by = state.distanceMode === 'straight' || !rankByTime ? 'distance' : 'time';
       showStatus(
         metric
           ? `Ranked by ${by} · ${top.name} is closest at ${metric}`
@@ -972,7 +900,7 @@ export function startProximity(
     window.clearTimeout(statusTimer);
     statusTimer = window.setTimeout(() => {
       ioStatus.hidden = true;
-      ioStatus.textContent = "";
+      ioStatus.textContent = '';
     }, 5000);
   }
 
@@ -980,13 +908,13 @@ export function startProximity(
     undoOpen = true;
     ioStatus.hidden = false;
     ioStatus.replaceChildren();
-    const text = document.createElement("span");
+    const text = document.createElement('span');
     text.textContent = `${message} `;
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "px-undo";
-    btn.textContent = "Undo";
-    btn.addEventListener("click", () => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'px-undo';
+    btn.textContent = 'Undo';
+    btn.addEventListener('click', () => {
       window.clearTimeout(statusTimer);
       restoreSnapshot(snap);
       ioStatus.hidden = true;
@@ -1003,9 +931,7 @@ export function startProximity(
 
   function applyFile(data: ProximityFile) {
     selectedLocationId = null;
-    state.destination = data.destination
-      ? { id: crypto.randomUUID(), ...data.destination }
-      : null;
+    state.destination = data.destination ? { id: crypto.randomUUID(), ...data.destination } : null;
     state.locations = data.locations.map((node) => ({
       id: crypto.randomUUID(),
       ...node,
@@ -1016,9 +942,7 @@ export function startProximity(
 
   function setDestination(place: Place) {
     state.destination = place;
-    state.locations = state.locations.filter(
-      (item) => !samePlace(item, place),
-    );
+    state.locations = state.locations.filter((item) => !samePlace(item, place));
     render();
     fit();
   }
@@ -1026,11 +950,11 @@ export function startProximity(
   function beginRename(place: Place, el: HTMLElement, event?: Event) {
     event?.stopPropagation();
     event?.preventDefault();
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "px-row-rename";
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'px-row-rename';
     input.value = place.name;
-    input.setAttribute("aria-label", `Rename ${place.name}`);
+    input.setAttribute('aria-label', `Rename ${place.name}`);
     const commit = () => {
       const next = input.value.trim();
       if (next && next !== place.name) {
@@ -1041,27 +965,26 @@ export function startProximity(
       render();
       focusRow(place.id);
     };
-    input.addEventListener("click", (e) => e.stopPropagation());
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('keydown', (e) => {
       e.stopPropagation();
-      if (e.key === "Enter") {
+      if (e.key === 'Enter') {
         e.preventDefault();
         input.blur();
-      } else if (e.key === "Escape") {
+      } else if (e.key === 'Escape') {
         e.preventDefault();
         input.value = place.name;
         input.blur();
       }
     });
-    input.addEventListener("blur", commit);
+    input.addEventListener('blur', commit);
     el.replaceWith(input);
     input.focus();
     input.select();
   }
 
   function addLocation(place: Place) {
-    if (state.destination && samePlace(state.destination, place))
-      return;
+    if (state.destination && samePlace(state.destination, place)) return;
     if (state.locations.some((item) => samePlace(item, place))) return;
     state.locations.push(place);
     render();
@@ -1075,34 +998,18 @@ export function startProximity(
     const center = map.getCenter();
     return { lat: center.lat, lon: center.lng };
   };
-  bindSearch(
-    root,
-    destInput,
-    destResults,
-    destForm,
-    setDestination,
-    session.signal,
-    searchBias,
-  );
-  bindSearch(
-    root,
-    locInput,
-    locResults,
-    locForm,
-    addLocation,
-    session.signal,
-    searchBias,
-  );
+  bindSearch(root, destInput, destResults, destForm, setDestination, session.signal, searchBias);
+  bindSearch(root, locInput, locResults, locForm, addLocation, session.signal, searchBias);
 
   useLocationBtn.addEventListener(
-    "click",
+    'click',
     () => {
       if (!navigator.geolocation) {
-        showStatus("Location services not available on this device");
+        showStatus('Location services not available on this device');
         return;
       }
       useLocationBtn.disabled = true;
-      useLocationBtn.textContent = "Locating…";
+      useLocationBtn.textContent = 'Locating…';
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           const lat = pos.coords.latitude;
@@ -1111,25 +1018,25 @@ export function startProximity(
           if (session.signal.aborted) return;
           setDestination({
             id: crypto.randomUUID(),
-            name: name || "My location",
+            name: name || 'My location',
             lat,
             lon,
           });
           useLocationBtn.disabled = false;
-          useLocationBtn.textContent = "Use my location";
+          useLocationBtn.textContent = 'Use my location';
         },
         (error) => {
           if (error.code === error.PERMISSION_DENIED) {
-            showStatus("Enable location permission in browser settings");
+            showStatus('Enable location permission in browser settings');
           } else if (error.code === error.POSITION_UNAVAILABLE) {
-            showStatus("Location not available (check GPS/connection)");
+            showStatus('Location not available (check GPS/connection)');
           } else if (error.code === error.TIMEOUT) {
-            showStatus("Location request timed out");
+            showStatus('Location request timed out');
           } else {
-            showStatus("Could not determine location");
+            showStatus('Could not determine location');
           }
           useLocationBtn.disabled = false;
-          useLocationBtn.textContent = "Use my location";
+          useLocationBtn.textContent = 'Use my location';
         },
         { enableHighAccuracy: true, timeout: 10000 },
       );
@@ -1137,10 +1044,10 @@ export function startProximity(
     { signal: session.signal },
   );
 
-  fitBtn.addEventListener("click", () => fit(true), { signal: session.signal });
+  fitBtn.addEventListener('click', () => fit(true), { signal: session.signal });
 
   function loadSample(announce = true) {
-    const custom = typeof options.sample === "object" ? options.sample : null;
+    const custom = typeof options.sample === 'object' ? options.sample : null;
     const result = custom
       ? { ok: true as const, data: custom }
       : parseProximityJson(JSON.stringify(sampleProximity));
@@ -1150,21 +1057,20 @@ export function startProximity(
     }
     applyFile(result.data);
     if (!announce) return;
-    const count =
-      result.data.locations.length + (result.data.destination ? 1 : 0);
+    const count = result.data.locations.length + (result.data.destination ? 1 : 0);
     showStatus(`Loaded sample · ${count} nodes.`);
   }
 
   for (const btn of sampleButtons) {
-    btn.addEventListener("click", () => loadSample(true), {
+    btn.addEventListener('click', () => loadSample(true), {
       signal: session.signal,
     });
   }
 
   if (options.share) {
-    shareBtn.setAttribute("aria-label", "Share this comparison");
+    shareBtn.setAttribute('aria-label', 'Share this comparison');
     shareBtn.addEventListener(
-      "click",
+      'click',
       async () => {
         const url = window.location.href;
 
@@ -1172,18 +1078,15 @@ export function startProximity(
           if (navigator.share) {
             try {
               await navigator.share({
-                title: "Geoproximity",
-                text: "Compare destinations by proximity.",
+                title: 'Geoproximity',
+                text: 'Compare destinations by proximity.',
                 url,
               });
-              showStatus("Share sheet opened.");
+              showStatus('Share sheet opened.');
               return;
             } catch (error) {
-              if (
-                error instanceof DOMException &&
-                error.name === "AbortError"
-              ) {
-                showStatus("Share cancelled.");
+              if (error instanceof DOMException && error.name === 'AbortError') {
+                showStatus('Share cancelled.');
                 return;
               }
             }
@@ -1191,22 +1094,22 @@ export function startProximity(
 
           if (navigator.clipboard && window.isSecureContext) {
             await navigator.clipboard.writeText(url);
-            showStatus("Link copied to clipboard.");
+            showStatus('Link copied to clipboard.');
             return;
           }
 
-          const temp = document.createElement("textarea");
+          const temp = document.createElement('textarea');
           temp.value = url;
-          temp.setAttribute("readonly", "true");
-          temp.style.position = "fixed";
-          temp.style.top = "-9999px";
+          temp.setAttribute('readonly', 'true');
+          temp.style.position = 'fixed';
+          temp.style.top = '-9999px';
           document.body.append(temp);
           temp.select();
-          document.execCommand("copy");
+          document.execCommand('copy');
           temp.remove();
-          showStatus("Link copied to clipboard.");
+          showStatus('Link copied to clipboard.');
         } catch {
-          showStatus("Could not copy link.");
+          showStatus('Could not copy link.');
         }
       },
       { signal: session.signal },
@@ -1214,7 +1117,7 @@ export function startProximity(
   }
 
   clearBtn.addEventListener(
-    "click",
+    'click',
     () => {
       const snap = snapshotState();
       selectedLocationId = null;
@@ -1223,14 +1126,14 @@ export function startProximity(
       state.locations = [];
       render();
       fit(true);
-      showUndo("Cleared comparison.", snap);
+      showUndo('Cleared comparison.', snap);
     },
     { signal: session.signal },
   );
 
   for (const btn of routeModeButtons) {
     btn.addEventListener(
-      "click",
+      'click',
       () => {
         const mode = btn.dataset.routeMode as DistanceMode;
         if (!mode) return;
@@ -1245,9 +1148,9 @@ export function startProximity(
 
   for (const btn of rankMetricButtons) {
     btn.addEventListener(
-      "click",
+      'click',
       () => {
-        const next = btn.dataset.rankMetric === "time";
+        const next = btn.dataset.rankMetric === 'time';
         if (next === rankByTime) return;
         rankByTime = next;
         render();
@@ -1257,30 +1160,30 @@ export function startProximity(
   }
 
   function onAnimationSwitchClick(button: HTMLButtonElement) {
-    if (button.getAttribute("aria-disabled") === "true") return;
+    if (button.getAttribute('aria-disabled') === 'true') return;
     setSwitchOn(button, !switchOn(button));
     applyRouteAnimation();
   }
 
   routeAnimationToggle.addEventListener(
-    "click",
+    'click',
     () => {
       onAnimationSwitchClick(routeAnimationToggle);
     },
     { signal: session.signal },
   );
   routeAnimationReverseToggle.addEventListener(
-    "click",
+    'click',
     () => {
       onAnimationSwitchClick(routeAnimationReverseToggle);
     },
     { signal: session.signal },
   );
-  motionQuery.addEventListener("change", applyRouteAnimation, {
+  motionQuery.addEventListener('change', applyRouteAnimation, {
     signal: session.signal,
   });
 
-  map.on("zoomend", () => {
+  map.on('zoomend', () => {
     const next = map.getZoom() >= LABEL_ZOOM;
     if (next === labelsPermanent) return;
     if (state.destination || state.locations.length > 0) {
@@ -1289,7 +1192,7 @@ export function startProximity(
     }
   });
 
-  map.on("click", (event: L.LeafletMouseEvent) => {
+  map.on('click', (event: L.LeafletMouseEvent) => {
     const { lat, lng } = event.latlng;
     void reverseGeocode(lat, lng, session.signal).then((name) => {
       if (session.signal.aborted) return;
@@ -1303,9 +1206,9 @@ export function startProximity(
   // has focus. Listen on the document but ignore keys typed into other
   // widgets on the page.
   document.addEventListener(
-    "keydown",
+    'keydown',
     (e) => {
-      if (!((e.ctrlKey || e.metaKey) && e.key === "k")) return;
+      if (!((e.ctrlKey || e.metaKey) && e.key === 'k')) return;
       const target = e.target;
       const outside =
         target instanceof Node &&
@@ -1316,10 +1219,7 @@ export function startProximity(
       e.preventDefault();
       // The destination form is hidden once a destination is set, so fall
       // through to the locations input in that case.
-      const input =
-        destForm.hidden || document.activeElement === destInput
-          ? locInput
-          : destInput;
+      const input = destForm.hidden || document.activeElement === destInput ? locInput : destInput;
       input.focus();
       input.select();
     },
@@ -1327,9 +1227,9 @@ export function startProximity(
   );
 
   host.addEventListener(
-    "keydown",
+    'keydown',
     (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "C") {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
         e.preventDefault();
         const snap = snapshotState();
         selectedLocationId = null;
@@ -1338,7 +1238,7 @@ export function startProximity(
         state.locations = [];
         render();
         fit(true);
-        showUndo("Cleared comparison.", snap);
+        showUndo('Cleared comparison.', snap);
       }
     },
     { signal: session.signal },
@@ -1354,11 +1254,7 @@ export function startProximity(
   } else if (stored) {
     if (stored.distanceMode) state.distanceMode = stored.distanceMode;
     applyFile(stored);
-  } else if (
-    options.sample &&
-    !state.destination &&
-    state.locations.length === 0
-  ) {
+  } else if (options.sample && !state.destination && state.locations.length === 0) {
     loadSample(false);
   } else {
     render();
@@ -1366,7 +1262,7 @@ export function startProximity(
   window.setTimeout(() => map.invalidateSize(), 0);
 
   function setState(next: Partial<ProximityState> | ProximityFile) {
-    if ("destination" in next && next.destination !== undefined) {
+    if ('destination' in next && next.destination !== undefined) {
       state.destination = next.destination
         ? {
             id: crypto.randomUUID(),
@@ -1376,7 +1272,7 @@ export function startProximity(
           }
         : null;
     }
-    if ("locations" in next && next.locations) {
+    if ('locations' in next && next.locations) {
       state.locations = next.locations.map((node) => ({
         id: crypto.randomUUID(),
         name: node.name,
@@ -1384,7 +1280,7 @@ export function startProximity(
         lon: node.lon,
       }));
     }
-    if ("distanceMode" in next && next.distanceMode) {
+    if ('distanceMode' in next && next.distanceMode) {
       state.distanceMode = next.distanceMode;
     }
     selectedLocationId = null;

@@ -1,8 +1,8 @@
-import { parseProximityJson } from "./io";
-import type { ProximityNode } from "./io";
-import type { DistanceMode, ProximityState } from "./types";
+import { parseProximityJson } from './io';
+import type { ProximityNode } from './io';
+import type { DistanceMode, ProximityState } from './types';
 
-const DISTANCE_MODES: readonly DistanceMode[] = ["straight", "driving", "walking"];
+const DISTANCE_MODES: readonly DistanceMode[] = ['straight', 'driving', 'walking'];
 
 function asDistanceMode(value: unknown): DistanceMode | undefined {
   return DISTANCE_MODES.find((mode) => mode === value);
@@ -24,8 +24,8 @@ function encodeNode(node: { name: string; lat: number; lon: number }): string {
 }
 
 function parseCompactNode(token: string): ProximityNode | null {
-  const first = token.indexOf(",");
-  const second = token.indexOf(",", first + 1);
+  const first = token.indexOf(',');
+  const second = token.indexOf(',', first + 1);
   if (first < 0 || second < 0) return null;
   const lat = Number(token.slice(0, first));
   const lon = Number(token.slice(first + 1, second));
@@ -42,51 +42,57 @@ function parseCompactNode(token: string): ProximityNode | null {
 }
 
 const MODE_SHORT: Record<DistanceMode, string> = {
-  straight: "",
-  driving: "d",
-  walking: "w",
+  straight: '',
+  driving: 'd',
+  walking: 'w',
 };
 
 export function encodeShareHash(state: ProximityState): string {
-  const dest = state.destination ? encodeNode(state.destination) : "";
-  const locs = state.locations.map(encodeNode).join(";");
+  const dest = state.destination ? encodeNode(state.destination) : '';
+  const locs = state.locations.map(encodeNode).join(';');
   const mode = MODE_SHORT[state.distanceMode];
   return `px=${dest}|${locs}|${mode}`;
 }
 
 function readCompactHash(hash: string): SharedComparison | null {
-  const body = hash.slice("#px=".length);
-  const parts = body.split("|");
+  const body = hash.slice('#px='.length);
+  const parts = body.split('|');
   if (parts.length < 2) return null;
-  const destToken = parts[0] ?? "";
-  const locToken = parts[1] ?? "";
-  const modeToken = parts[2] ?? "";
+  const destToken = parts[0] ?? '';
+  const locToken = parts[1] ?? '';
+  const modeToken = parts[2] ?? '';
   const destination = destToken ? parseCompactNode(destToken) : null;
   if (destToken && !destination) return null;
   const locations: ProximityNode[] = [];
   if (locToken) {
-    for (const token of locToken.split(";")) {
+    for (const token of locToken.split(';')) {
       const node = parseCompactNode(token);
       if (!node) return null;
       locations.push(node);
     }
   }
   const distanceMode =
-    modeToken === "d" ? "driving" : modeToken === "w" ? "walking" : modeToken === "" ? "straight" : asDistanceMode(modeToken);
-  return distanceMode && distanceMode !== "straight"
+    modeToken === 'd'
+      ? 'driving'
+      : modeToken === 'w'
+        ? 'walking'
+        : modeToken === ''
+          ? 'straight'
+          : asDistanceMode(modeToken);
+  return distanceMode && distanceMode !== 'straight'
     ? { destination, locations, distanceMode }
-    : { destination, locations, distanceMode: distanceMode ?? "straight" };
+    : { destination, locations, distanceMode: distanceMode ?? 'straight' };
 }
 
 function readLegacyHash(hash: string): SharedComparison | null {
   try {
-    const text = decodeURIComponent(hash.slice("#proximity=".length));
+    const text = decodeURIComponent(hash.slice('#proximity='.length));
     const result = parseProximityJson(text);
     if (!result.ok) return null;
 
     let distanceMode: DistanceMode | undefined;
     const raw: unknown = JSON.parse(text);
-    if (typeof raw === "object" && raw !== null && !Array.isArray(raw)) {
+    if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
       distanceMode = asDistanceMode((raw as { mode?: unknown }).mode);
     }
 
@@ -97,12 +103,12 @@ function readLegacyHash(hash: string): SharedComparison | null {
 }
 
 export function readShareHash(hash: string): SharedComparison | null {
-  if (hash.startsWith("#px=")) return readCompactHash(hash);
-  if (hash.startsWith("#proximity=")) return readLegacyHash(hash);
+  if (hash.startsWith('#px=')) return readCompactHash(hash);
+  if (hash.startsWith('#proximity=')) return readLegacyHash(hash);
   return null;
 }
 
-export const STORAGE_KEY = "geoproximity:v1";
+export const STORAGE_KEY = 'geoproximity:v1';
 
 function memoryStorage(): Storage | null {
   try {

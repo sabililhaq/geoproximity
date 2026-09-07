@@ -16,7 +16,7 @@
         --row-hover: 224, 221, 214;
       }
 
-      html[data-theme="dark"] {
+      html[data-theme='dark'] {
         --black: 240, 239, 237;
         --gray: 164, 160, 152;
         --gray-light: 58, 56, 52;
@@ -42,11 +42,9 @@
   </head>
   <body>
     <script>
-      document.documentElement.dataset.theme = matchMedia(
-        "(prefers-color-scheme: dark)",
-      ).matches
-        ? "dark"
-        : "light";
+      document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light';
     </script>
     <div id="app"></div>
     <script type="module" src="/src/demo.ts"></script>

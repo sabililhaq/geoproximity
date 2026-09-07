@@ -1,15 +1,11 @@
-import "leaflet/dist/leaflet.css";
-import "./styles.css";
+import 'leaflet/dist/leaflet.css';
+import './styles.css';
 
-import {
-  invalidateProximity,
-  startProximity,
-  type ProximityHandle,
-} from "./app";
-import { renderProximityMarkup } from "./template";
-import type { ProximityFile } from "./io";
-import type { UiLabels } from "./labels";
-import type { ProximityState } from "./types";
+import { invalidateProximity, startProximity, type ProximityHandle } from './app';
+import { renderProximityMarkup } from './template';
+import type { ProximityFile } from './io';
+import type { UiLabels } from './labels';
+import type { ProximityState } from './types';
 
 export type MountProximityOptions = {
   basePath?: string;
@@ -30,7 +26,7 @@ export function mountProximity(
   root: HTMLElement,
   options: MountProximityOptions = {},
 ): ProximityHandle {
-  if (!root.querySelector("[data-proximity]")) {
+  if (!root.querySelector('[data-proximity]')) {
     root.innerHTML = renderProximityMarkup(options.labels);
   }
 

@@ -1,90 +1,81 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  encodeShareHash,
-  readShareHash,
-  readStoredState,
-  writeStoredState,
-} from "../src/share";
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { encodeShareHash, readShareHash, readStoredState, writeStoredState } from '../src/share';
 
 const state = {
   destination: {
-    id: "destination-id",
-    name: "Paris",
+    id: 'destination-id',
+    name: 'Paris',
     lat: 48.8566,
     lon: 2.3522,
   },
-  locations: [
-    { id: "location-id", name: "London", lat: 51.5074, lon: -0.1278 },
-  ],
-  distanceMode: "straight" as const,
+  locations: [{ id: 'location-id', name: 'London', lat: 51.5074, lon: -0.1278 }],
+  distanceMode: 'straight' as const,
 };
 
-describe("share hash", () => {
-  it("round-trips a comparison without ids", () => {
+describe('share hash', () => {
+  it('round-trips a comparison without ids', () => {
     const result = readShareHash(`#${encodeShareHash(state)}`);
 
     expect(result).toEqual({
-      destination: { name: "Paris", lat: 48.8566, lon: 2.3522 },
-      locations: [{ name: "London", lat: 51.5074, lon: -0.1278 }],
-      distanceMode: "straight",
+      destination: { name: 'Paris', lat: 48.8566, lon: 2.3522 },
+      locations: [{ name: 'London', lat: 51.5074, lon: -0.1278 }],
+      distanceMode: 'straight',
     });
   });
 
-  it("round-trips the distance mode and ignores unknown modes", () => {
-    const driving = readShareHash(
-      `#${encodeShareHash({ ...state, distanceMode: "driving" })}`,
-    );
-    expect(driving?.distanceMode).toBe("driving");
+  it('round-trips the distance mode and ignores unknown modes', () => {
+    const driving = readShareHash(`#${encodeShareHash({ ...state, distanceMode: 'driving' })}`);
+    expect(driving?.distanceMode).toBe('driving');
 
     const bogus = readShareHash(
       `#proximity=${encodeURIComponent(
-        JSON.stringify({ destination: null, locations: [], mode: "teleport" }),
+        JSON.stringify({ destination: null, locations: [], mode: 'teleport' }),
       )}`,
     );
     expect(bogus).toEqual({ destination: null, locations: [] });
   });
 
-  it("rejects malformed or invalid hashes", () => {
-    expect(readShareHash("")).toBeNull();
-    expect(readShareHash("#nonsense")).toBeNull();
-    expect(readShareHash("#proximity=not-json")).toBeNull();
+  it('rejects malformed or invalid hashes', () => {
+    expect(readShareHash('')).toBeNull();
+    expect(readShareHash('#nonsense')).toBeNull();
+    expect(readShareHash('#proximity=not-json')).toBeNull();
     expect(
       readShareHash(
-        `#proximity=${encodeURIComponent(JSON.stringify({ destination: { name: "Bad", lat: 91, lon: 0 } }))}`,
+        `#proximity=${encodeURIComponent(JSON.stringify({ destination: { name: 'Bad', lat: 91, lon: 0 } }))}`,
       ),
     ).toBeNull();
-    expect(readShareHash("#px=91,0,Bad||")).toBeNull();
+    expect(readShareHash('#px=91,0,Bad||')).toBeNull();
   });
 
-  it("keeps names with commas and stays shorter than JSON hashes", () => {
+  it('keeps names with commas and stays shorter than JSON hashes', () => {
     const named = {
       ...state,
-      destination: { ...state.destination, name: "Paris, France" },
+      destination: { ...state.destination, name: 'Paris, France' },
     };
     const compact = encodeShareHash(named);
-    expect(compact.startsWith("px=")).toBe(true);
-    expect(readShareHash(`#${compact}`)?.destination?.name).toBe("Paris, France");
+    expect(compact.startsWith('px=')).toBe(true);
+    expect(readShareHash(`#${compact}`)?.destination?.name).toBe('Paris, France');
 
     const json = `proximity=${encodeURIComponent(
       JSON.stringify({
-        destination: { name: "Paris, France", lat: 48.8566, lon: 2.3522 },
-        locations: [{ name: "London", lat: 51.5074, lon: -0.1278 }],
-        mode: "straight",
+        destination: { name: 'Paris, France', lat: 48.8566, lon: 2.3522 },
+        locations: [{ name: 'London', lat: 51.5074, lon: -0.1278 }],
+        mode: 'straight',
       }),
     )}`;
     expect(compact.length).toBeLessThan(json.length);
   });
 
-  it("ignores a legacy unit field in shared links", () => {
+  it('ignores a legacy unit field in shared links', () => {
     const hash = `#proximity=${encodeURIComponent(
-      JSON.stringify({ destination: null, locations: [], unit: "mi" }),
+      JSON.stringify({ destination: null, locations: [], unit: 'mi' }),
     )}`;
 
     expect(readShareHash(hash)).toEqual({ destination: null, locations: [] });
   });
 });
 
-describe("stored state", () => {
+describe('stored state', () => {
   const memory = new Map<string, string>();
   const stub: Storage = {
     get length() {
@@ -106,13 +97,13 @@ describe("stored state", () => {
     vi.unstubAllGlobals();
   });
 
-  it("round-trips through localStorage", () => {
-    vi.stubGlobal("localStorage", stub);
+  it('round-trips through localStorage', () => {
+    vi.stubGlobal('localStorage', stub);
     writeStoredState(state);
     expect(readStoredState()).toEqual({
-      destination: { name: "Paris", lat: 48.8566, lon: 2.3522 },
-      locations: [{ name: "London", lat: 51.5074, lon: -0.1278 }],
-      distanceMode: "straight",
+      destination: { name: 'Paris', lat: 48.8566, lon: 2.3522 },
+      locations: [{ name: 'London', lat: 51.5074, lon: -0.1278 }],
+      distanceMode: 'straight',
     });
   });
 });

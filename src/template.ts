@@ -1,15 +1,12 @@
 import { mergeLabels, type UiLabels } from './labels';
 
 function esc(value: string): string {
-	return value
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/"/g, '&quot;');
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 }
 
 export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
-	const t = mergeLabels(labels);
-	return `
+  const t = mergeLabels(labels);
+  return `
 <div data-proximity>
 	<div class="px-layout">
 		<aside class="px-sidebar">
