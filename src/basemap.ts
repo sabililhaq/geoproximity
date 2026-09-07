@@ -8,6 +8,10 @@ export function cartoTileUrl(theme: string | undefined, apiKey = ""): string {
 export function resolveCartoApiKey(explicit?: string): string {
   const fromOption = explicit?.trim() ?? "";
   if (fromOption) return fromOption;
-  const fromEnv = import.meta.env.VITE_CARTO_API_KEY;
+  const env =
+    typeof import.meta !== "undefined"
+      ? (import.meta as ImportMeta & { env?: { VITE_CARTO_API_KEY?: unknown } }).env
+      : undefined;
+  const fromEnv = env?.VITE_CARTO_API_KEY;
   return typeof fromEnv === "string" ? fromEnv.trim() : "";
 }

@@ -33,4 +33,12 @@ describe("resolveCartoApiKey", () => {
   it("prefers an explicit option over the environment", () => {
     expect(resolveCartoApiKey(" from-option ")).toBe("from-option");
   });
+
+  it("treats a blank explicit key as missing", () => {
+    expect(resolveCartoApiKey("  ")).toBe(
+      typeof import.meta.env.VITE_CARTO_API_KEY === "string"
+        ? import.meta.env.VITE_CARTO_API_KEY.trim()
+        : "",
+    );
+  });
 });
