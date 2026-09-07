@@ -344,6 +344,7 @@ export function startProximity(
 
   const session = new AbortController();
   const map = L.map(mapEl, { worldCopyJump: true }).setView([20, 0], 2);
+  L.control.scale({ maxWidth: 120 }).addTo(map);
   const cartoApiKey = resolveCartoApiKey(options.cartoApiKey);
   let tileErrorShown = false;
   const addTiles = () => {
