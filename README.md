@@ -21,15 +21,13 @@ Instead of checking each hub individually in Google Maps, add them all to Geopro
 
 ### Finding a meeting point
 
-Several people are coming from different locations and you have several candidate meeting points.
+The current model is **one destination and N locations**, ranked to that destination. It does not yet rank several candidate venues by total or maximum travel from several people.
 
-Plot the participants and candidates together to understand which options are geographically convenient.
+A useful workaround: set one candidate as the destination and add everyone else as locations, then repeat for the next candidate. That shows who is farthest from that spot. Ranking many candidates against many origins is a different calculation and is not built in yet.
 
 ### Choosing a restaurant
 
-You have several restaurant options and multiple people coming from different places.
-
-Visualize them together to compare the geographic trade-offs instead of evaluating each distance separately.
+Same shape as the travel-hub case: one place you care about (home, office, hotel) and several restaurant options ranked to it.
 
 ### More generally
 
@@ -95,9 +93,9 @@ This makes the core application:
 * **Serverless** — no backend required
 * **Client-side** — calculations happen locally
 * **Lightweight** — the problem can be solved directly from coordinates
-* **Privacy-friendly** — location data doesn't need to pass through an application server
+* **Privacy-friendly ranking** — distance and sort order are computed in the browser, not on an application server
 
-The map and geocoding functionality may still depend on external services.
+Search, map tiles, routing, and **reverse geocoding still call third parties**. Clicking the map or using **Use my location** sends that precise coordinate to Nominatim (then Photon) so the pin can be named. Pasting coordinates or a Maps URL does not. The last comparison is also stored in `localStorage` on this device.
 
 ## Distance
 
