@@ -1,5 +1,5 @@
 import { searchPlaces, type GeocodeHit } from './geocoder';
-import { parsePlaceInput } from './parse-place';
+import { parsePlaceInput, parsePlaceLines } from './parse-place';
 import type { Place } from './types';
 
 export function bindSearch(
@@ -10,6 +10,7 @@ export function bindSearch(
   onPick: (place: Place) => void,
   signal: AbortSignal,
   getBias?: () => { lat: number; lon: number } | null,
+  onBulkNotice?: (message: string) => void,
 ): void {
   let timer = 0;
   let searchAbort: AbortController | null = null;
@@ -108,6 +109,32 @@ export function bindSearch(
     () => {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => void run(), 400);
+    },
+    { signal },
+  );
+
+  input.addEventListener(
+    'paste',
+    (event) => {
+      const text = event.clipboardData?.getData('text') ?? '';
+      if (!text.includes('\n')) return;
+      const places = parsePlaceLines(text);
+      if (places.length === 0) return;
+
+      event.preventDefault();
+      window.clearTimeout(timer);
+      searchAbort?.abort();
+      for (const place of places) {
+        onPick({
+          id: crypto.randomUUID(),
+          name: `${place.lat.toFixed(4)}, ${place.lon.toFixed(4)}`,
+          lat: place.lat,
+          lon: place.lon,
+        });
+      }
+      input.value = '';
+      hide();
+      onBulkNotice?.(`Added ${places.length} locations from pasted coordinates.`);
     },
     { signal },
   );

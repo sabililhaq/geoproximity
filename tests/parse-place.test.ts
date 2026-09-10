@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCoordinates, parseMapsUrl, parsePlaceInput } from '../src/parse-place';
+import { parseCoordinates, parseMapsUrl, parsePlaceInput, parsePlaceLines } from '../src/parse-place';
 
 describe('parseCoordinates', () => {
   it('reads lat, lon pairs', () => {
@@ -38,5 +38,22 @@ describe('parseMapsUrl', () => {
 describe('parsePlaceInput', () => {
   it('prefers a bare coordinate pair', () => {
     expect(parsePlaceInput(' 40.7, -74.0 ')).toEqual({ lat: 40.7, lon: -74.0 });
+  });
+});
+
+describe('parsePlaceLines', () => {
+  it('parses coordinate and Maps URL lines without duplicates', () => {
+    expect(
+      parsePlaceLines(
+        '48.8566, 2.3522\nhttps://www.google.com/maps/@48.8566,2.3522,17z\n-6.92, 107.61',
+      ),
+    ).toEqual([
+      { lat: 48.8566, lon: 2.3522 },
+      { lat: -6.92, lon: 107.61 },
+    ]);
+  });
+
+  it('ignores non-coordinate lines', () => {
+    expect(parsePlaceLines('Paris\nnot a place\n48.8, 2.3')).toEqual([{ lat: 48.8, lon: 2.3 }]);
   });
 });

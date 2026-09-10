@@ -1004,7 +1004,16 @@ export function startProximity(
     return { lat: center.lat, lon: center.lng };
   };
   bindSearch(root, destInput, destResults, destForm, setDestination, session.signal, searchBias);
-  bindSearch(root, locInput, locResults, locForm, addLocation, session.signal, searchBias);
+  bindSearch(
+    root,
+    locInput,
+    locResults,
+    locForm,
+    addLocation,
+    session.signal,
+    searchBias,
+    (message) => showStatus(message),
+  );
 
   useLocationBtn.addEventListener(
     'click',

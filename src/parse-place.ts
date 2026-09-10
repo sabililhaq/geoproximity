@@ -50,3 +50,17 @@ export function parseMapsUrl(input: string): ParsedCoords | null {
 export function parsePlaceInput(input: string): ParsedCoords | null {
   return parseCoordinates(input) ?? parseMapsUrl(input);
 }
+
+export function parsePlaceLines(input: string): ParsedCoords[] {
+  const seen = new Set<string>();
+  const places: ParsedCoords[] = [];
+  for (const line of input.split(/\r?\n/)) {
+    const place = parsePlaceInput(line);
+    if (!place) continue;
+    const key = `${place.lat},${place.lon}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    places.push(place);
+  }
+  return places;
+}

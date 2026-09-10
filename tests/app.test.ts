@@ -245,6 +245,30 @@ describe('inline rename', () => {
   });
 });
 
+describe('bulk location paste', () => {
+  it('adds unique coordinate lines and reports the count', () => {
+    const { root, stop } = mountWithHash({ destination: dest, locations: [] });
+    cleanups.push(stop);
+
+    const input = root.querySelector<HTMLInputElement>('[data-loc-input]')!;
+    const event = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', {
+      value: {
+        getData: () => '51.5074, -0.1278\n51.5074, -0.1278\n50.8503, 4.3517',
+      },
+    });
+    input.dispatchEvent(event);
+
+    expect(rows(root).map((row) => row.querySelector('.px-row-name')!.textContent)).toEqual([
+      '50.8503, 4.3517',
+      '51.5074, -0.1278',
+    ]);
+    expect(root.querySelector('[data-io-status]')?.textContent).toBe(
+      'Added 2 locations from pasted coordinates.',
+    );
+  });
+});
+
 describe('mobile keyboard viewport', () => {
   it('keeps the host anchored while the visual viewport shrinks', () => {
     const previousViewport = window.visualViewport;
