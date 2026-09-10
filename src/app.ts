@@ -864,6 +864,7 @@ export function startProximity(
     empty.hidden = hasNodes;
     fitBtn.disabled = !hasNodes;
     clearBtn.disabled = !hasNodes;
+    shareBtn.disabled = !hasNodes;
 
     if (options.share) {
       window.history.replaceState(null, '', `#${encodeShareHash(state)}`);
@@ -1321,7 +1322,10 @@ export function startProximity(
     { signal: session.signal },
   );
 
-  const shared = options.share ? readShareHash(window.location.hash) : null;
+  const shareHash = window.location.hash;
+  const shared = options.share ? readShareHash(shareHash) : null;
+  const invalidShared =
+    options.share && /^#(?:px|proximity)=/.test(shareHash) && shared === null;
   const stored = shared ? null : readStoredState();
   if (shared) {
     if (shared.distanceMode) state.distanceMode = shared.distanceMode;
@@ -1331,11 +1335,13 @@ export function startProximity(
   } else if (stored) {
     if (stored.distanceMode) state.distanceMode = stored.distanceMode;
     applyFile(stored);
+    showStatus('Restored your previous comparison.');
   } else if (options.sample && !state.destination && state.locations.length === 0) {
     loadSample(false);
   } else {
     render();
   }
+  if (invalidShared) showStatus('That shared comparison link is invalid.');
   window.setTimeout(() => map.invalidateSize(), 0);
 
   function setState(next: Partial<ProximityState> | ProximityFile) {
