@@ -203,10 +203,12 @@ export function startProximity(
     resizer.addEventListener('pointermove', (e) => {
       if (!isDragging) return;
       const delta = isVertical ? startPos - e.clientY : e.clientX - startPos;
-      const newSize = Math.max(200, startSize + delta);
       if (isVertical) {
+        const maxSize = Math.max(200, layout.clientHeight - 230);
+        const newSize = Math.min(maxSize, Math.max(200, startSize + delta));
         layout.style.setProperty('--px-sidebar-h', `${newSize}px`);
       } else {
+        const newSize = Math.max(200, startSize + delta);
         layout.style.setProperty('--px-sidebar-w', `${newSize}px`);
       }
       map.invalidateSize();
