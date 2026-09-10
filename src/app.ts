@@ -1049,6 +1049,7 @@ export function startProximity(
     addLocation,
     session.signal,
     searchBias,
+    true,
     (message) => showStatus(message),
   );
 

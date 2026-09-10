@@ -1,5 +1,5 @@
 import { searchPlaces, type GeocodeHit } from './geocoder';
-import { parsePlaceInput, parsePlaceLines } from './parse-place';
+import { parsePlaceInput } from './parse-place';
 import type { Place } from './types';
 
 export function bindSearch(
@@ -10,6 +10,7 @@ export function bindSearch(
   onPick: (place: Place) => void,
   signal: AbortSignal,
   getBias?: () => { lat: number; lon: number } | null,
+  allowBulk = false,
   onBulkNotice?: (message: string) => void,
 ): void {
   let timer = 0;
@@ -64,6 +65,79 @@ export function bindSearch(
       });
       results.append(btn);
     }
+    results.hidden = false;
+  };
+
+  type BulkOption = GeocodeHit;
+  type BulkResolution = { input: string; options: BulkOption[] };
+
+  const renderBulkReview = (resolutions: BulkResolution[]) => {
+    results.replaceChildren();
+    const review = document.createElement('div');
+    review.className = 'px-bulk-review';
+    const heading = document.createElement('strong');
+    heading.textContent = `Review ${resolutions.length} pasted places`;
+    review.append(heading);
+
+    const selects = resolutions.map((resolution) => {
+      const row = document.createElement('label');
+      row.className = 'px-bulk-row';
+      const source = document.createElement('span');
+      source.className = 'px-bulk-source';
+      source.textContent = resolution.input;
+      const select = document.createElement('select');
+      select.disabled = resolution.options.length === 0;
+      select.setAttribute('aria-label', `Match for ${resolution.input}`);
+      if (resolution.options.length === 0) {
+        const option = document.createElement('option');
+        option.textContent = 'No match found';
+        select.append(option);
+      } else {
+        for (const [index, optionValue] of resolution.options.entries()) {
+          const option = document.createElement('option');
+          option.value = String(index);
+          option.textContent = optionValue.name;
+          select.append(option);
+        }
+      }
+      row.append(source, select);
+      review.append(row);
+      return select;
+    });
+
+    const actions = document.createElement('div');
+    actions.className = 'px-bulk-actions';
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'px-bulk-add';
+    add.textContent = 'Add selected';
+    add.disabled = resolutions.every((resolution) => resolution.options.length === 0);
+    add.addEventListener('click', () => {
+      let count = 0;
+      for (const [index, select] of selects.entries()) {
+        const resolution = resolutions[index]!;
+        const option = resolution.options[Number(select.value)];
+        if (!option) continue;
+        onPick({
+          id: crypto.randomUUID(),
+          name: option.shortName || option.name,
+          lat: option.lat,
+          lon: option.lon,
+        });
+        count++;
+      }
+      input.value = '';
+      hide();
+      onBulkNotice?.(`Added ${count} pasted places.`);
+    });
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'px-bulk-cancel';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', hide);
+    actions.append(add, cancel);
+    review.append(actions);
+    results.append(review);
     results.hidden = false;
   };
 
@@ -130,28 +204,73 @@ export function bindSearch(
   input.addEventListener(
     'paste',
     (event) => {
+      if (!allowBulk) return;
       const text = event.clipboardData?.getData('text') ?? '';
       if (!text.includes('\n')) return;
-      const places = parsePlaceLines(text);
-      if (places.length === 0) return;
+      const lines = [...new Set(text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean))].slice(
+        0,
+        20,
+      );
+      if (lines.length === 0) return;
+
+      const coordinates = lines.map((line) => parsePlaceInput(line));
+      if (coordinates.every((place): place is NonNullable<typeof place> => place !== null)) {
+        event.preventDefault();
+        window.clearTimeout(timer);
+        searchAbort?.abort();
+        for (const place of coordinates) {
+          onPick({
+            id: crypto.randomUUID(),
+            name: `${place.lat.toFixed(4)}, ${place.lon.toFixed(4)}`,
+            lat: place.lat,
+            lon: place.lon,
+          });
+        }
+        input.value = '';
+        hide();
+        onBulkNotice?.(`Added ${coordinates.length} locations from pasted coordinates.`);
+        return;
+      }
 
       event.preventDefault();
       window.clearTimeout(timer);
       searchAbort?.abort();
-      for (const place of places) {
-        onPick({
-          id: crypto.randomUUID(),
-          name: `${place.lat.toFixed(4)}, ${place.lon.toFixed(4)}`,
-          lat: place.lat,
-          lon: place.lon,
-        });
-      }
-      input.value = '';
-      hide();
-      onBulkNotice?.(`Added ${places.length} locations from pasted coordinates.`);
+      void resolveBulk(lines);
     },
     { signal },
   );
+
+  async function resolveBulk(lines: string[]) {
+    const controller = new AbortController();
+    searchAbort?.abort();
+    searchAbort = controller;
+    results.hidden = false;
+    results.textContent = `Resolving pasted places…`;
+    const resolutions: BulkResolution[] = [];
+    const bias = getBias?.() ?? undefined;
+
+    for (const line of lines) {
+      if (controller.signal.aborted) return;
+      const coords = parsePlaceInput(line);
+      if (coords) {
+        const formatted = `${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}`;
+        resolutions.push({
+          input: line,
+          options: [{ name: formatted, shortName: formatted, lat: coords.lat, lon: coords.lon }],
+        });
+        continue;
+      }
+      const result = await searchPlaces(line, {
+        limit: 5,
+        signal: controller.signal,
+        bias: bias ?? undefined,
+      });
+      if (controller.signal.aborted) return;
+      resolutions.push({ input: line, options: result.hits });
+    }
+
+    renderBulkReview(resolutions);
+  }
 
   form.addEventListener(
     'submit',

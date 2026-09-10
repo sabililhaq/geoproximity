@@ -378,6 +378,65 @@
   text-decoration: underline;
 }
 
+.px-bulk-review {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.45rem;
+}
+
+.px-bulk-row {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.px-bulk-source {
+  overflow: hidden;
+  color: var(--px-muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.px-bulk-row select {
+  min-width: 0;
+  padding: 0.35rem;
+  border: 1px solid var(--px-border);
+  border-radius: 6px;
+  background: var(--px-fill);
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.px-bulk-actions {
+  display: flex;
+  gap: 0.45rem;
+  padding-top: 0.2rem;
+}
+
+.px-bulk-add,
+.px-bulk-cancel {
+  flex: 1;
+  min-height: 2.2rem;
+  border: 1px solid var(--px-border);
+  border-radius: 6px;
+  background: var(--px-fill);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.px-bulk-add {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+}
+
+.px-bulk-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .px-results .px-empty {
   color: var(--px-muted);
   cursor: default;
