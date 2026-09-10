@@ -512,7 +512,10 @@ export function startProximity(
       await fillRouteGeometries(ranked, signal);
     } catch {
       if (!signal.aborted) {
-        hint.textContent = `Could not fetch ${modeLabel(state.distanceMode)} routes · showing straight-line distance`;
+        const label = modeLabel(state.distanceMode);
+        const message = `Could not fetch ${label} routes · showing straight-line distance`;
+        hint.textContent = message;
+        showStatus(message);
       }
     } finally {
       if (distanceAbort === controller) {
