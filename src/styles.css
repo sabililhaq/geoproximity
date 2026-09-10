@@ -932,6 +932,10 @@ summary:focus-visible,
   box-shadow: none;
 }
 
+[data-proximity].px-hide-scale .leaflet-control-scale {
+  display: none;
+}
+
 @media (max-width: 767px) {
   .px-layout {
     --px-sidebar-h: clamp(360px, 54vh, 520px);

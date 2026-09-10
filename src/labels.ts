@@ -11,6 +11,8 @@ export type UiLabels = {
   reverseDirection: string;
   mapless: string;
   maplessHelp: string;
+  showScale: string;
+  showScaleHelp: string;
   destination: string;
   locations: string;
   destPlaceholder: string;
@@ -45,6 +47,8 @@ export const defaultLabels: UiLabels = {
   reverseDirection: 'Reverse direction',
   mapless: 'List only',
   maplessHelp: 'Hide the map and show the ranked comparison list.',
+  showScale: 'Show scale ruler',
+  showScaleHelp: 'Show the map distance scale.',
   destination: 'Destination',
   locations: 'Locations',
   destPlaceholder: 'Search, coordinates, or Maps link',

@@ -285,6 +285,21 @@ describe('map-less view', () => {
   });
 });
 
+describe('scale ruler visibility', () => {
+  it('shows the ruler by default and can hide it', () => {
+    const { root, stop } = mountWithHash({ destination: dest, locations: [] });
+    cleanups.push(stop);
+
+    const host = root.querySelector<HTMLElement>('[data-proximity]')!;
+    const toggle = root.querySelector<HTMLButtonElement>('[data-scale-toggle]')!;
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    expect(host.classList.contains('px-hide-scale')).toBe(false);
+    toggle.click();
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(host.classList.contains('px-hide-scale')).toBe(true);
+  });
+});
+
 describe('mobile keyboard viewport', () => {
   it('keeps the host anchored while the visual viewport shrinks', () => {
     const previousViewport = window.visualViewport;

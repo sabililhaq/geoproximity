@@ -41,6 +41,11 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 							<span class="px-switch" aria-hidden="true"></span>
 						</button>
 						<p id="px-mapless-help" class="px-sr" data-mapless-help>${esc(t.maplessHelp)}</p>
+						<button type="button" class="px-toggle" data-scale-toggle role="switch" aria-checked="true" aria-describedby="px-scale-help">
+							<span>${esc(t.showScale)}</span>
+							<span class="px-switch" aria-hidden="true"></span>
+						</button>
+						<p id="px-scale-help" class="px-sr" data-scale-help>${esc(t.showScaleHelp)}</p>
 					</div>
 				</details>
 				<section class="px-section">
