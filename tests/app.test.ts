@@ -245,6 +245,56 @@ describe('inline rename', () => {
   });
 });
 
+describe('mobile keyboard viewport', () => {
+  it('keeps the host anchored while the visual viewport shrinks', () => {
+    const previousViewport = window.visualViewport;
+    const listeners = new Map<string, () => void>();
+    const viewport = {
+      height: window.innerHeight,
+      offsetTop: 0,
+      addEventListener: (type: string, listener: EventListenerOrEventListenerObject) => {
+        listeners.set(type, listener as () => void);
+      },
+      removeEventListener: () => {},
+    } as unknown as VisualViewport;
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      value: viewport,
+    });
+
+    try {
+      const { root, stop } = mountWithHash({ destination: dest, locations: [] });
+      cleanups.push(stop);
+      const host = root.querySelector<HTMLElement>('[data-proximity]')!;
+
+      viewport.height = 500;
+      viewport.offsetTop = 24;
+      listeners.get('resize')!();
+
+      expect(host.classList.contains('is-keyboard-open')).toBe(true);
+      expect(host.style.height).toBe('500px');
+      expect(host.style.transform).toBe('translate3d(0, 24px, 0)');
+
+      viewport.height = window.innerHeight;
+      viewport.offsetTop = 0;
+      listeners.get('resize')!();
+
+      expect(host.classList.contains('is-keyboard-open')).toBe(false);
+      expect(host.style.height).toBe('');
+      expect(host.style.transform).toBe('');
+    } finally {
+      if (previousViewport) {
+        Object.defineProperty(window, 'visualViewport', {
+          configurable: true,
+          value: previousViewport,
+        });
+      } else {
+        delete (window as Window & { visualViewport?: VisualViewport }).visualViewport;
+      }
+    }
+  });
+});
+
 describe('multiple instances', () => {
   it('keep independent state and unique element ids', () => {
     const a = document.createElement('div');
