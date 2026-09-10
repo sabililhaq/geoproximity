@@ -910,7 +910,7 @@ summary:focus-visible,
 
 @media (max-width: 767px) {
   .px-layout {
-    --px-sidebar-h: clamp(290px, 40vh, 430px);
+    --px-sidebar-h: clamp(360px, 54vh, 520px);
     grid-template-rows: minmax(0, 1fr) 10px minmax(0, var(--px-sidebar-h));
   }
 
@@ -1141,6 +1141,7 @@ summary:focus-visible,
 
 [data-proximity].is-keyboard-open {
   height: 100%;
+  will-change: transform;
 }
 
 [data-proximity].is-keyboard-open .px-layout {

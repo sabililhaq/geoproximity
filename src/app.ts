@@ -230,8 +230,10 @@ export function startProximity(
     host.classList.toggle('is-keyboard-open', keyboardOpen);
     if (keyboardOpen) {
       host.style.height = `${Math.max(1, visualViewport.height)}px`;
+      host.style.transform = `translate3d(0, ${Math.max(0, visualViewport.offsetTop)}px, 0)`;
     } else {
       host.style.removeProperty('height');
+      host.style.removeProperty('transform');
     }
     map.invalidateSize();
   };
