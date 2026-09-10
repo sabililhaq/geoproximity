@@ -21,7 +21,7 @@ describe('proximity control panel surfaces', () => {
     expect(css).toMatch(/\.px-switch \{[\s\S]*?border-radius: 999px;/);
     expect(css).toMatch(/\.px-map-empty button \{[\s\S]*?background: var\(--px-wash\);/);
     expect(css).toMatch(
-      /\.leaflet-control-scale-line \{[\s\S]*?background: color-mix\(in srgb, var\(--px-fill\) 68%, transparent\);/,
+      /\.leaflet-control-scale-line \{[\s\S]*?background: color-mix\(in srgb, var\(--px-fill\) 48%, transparent\);/,
     );
   });
 

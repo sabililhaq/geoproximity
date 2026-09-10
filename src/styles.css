@@ -881,7 +881,7 @@ summary:focus-visible,
 }
 
 [data-proximity] .leaflet-control-scale-line {
-  background: color-mix(in srgb, var(--px-fill) 68%, transparent);
+  background: color-mix(in srgb, var(--px-fill) 48%, transparent);
   border-color: color-mix(in srgb, var(--px-ink) 65%, transparent);
   color: var(--px-muted);
 }
