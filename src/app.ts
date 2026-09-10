@@ -3,6 +3,7 @@ import {
   formatDistance,
   formatDuration,
   geodesicLatLngs,
+  clearRouteCache,
   getNetworkDistance,
   samePlace,
   withDistance,
@@ -113,6 +114,7 @@ export function startProximity(
   const sampleButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-sample]'));
   const ioStatus = qs(root, '[data-io-status]');
   const hint = qs(root, '[data-px-hint]');
+  const routeRetry = qs<HTMLButtonElement>(root, '[data-route-retry]');
   const empty = qs(root, '[data-px-empty]');
   const routeModeButtons = Array.from(
     root.querySelectorAll<HTMLButtonElement>('[data-route-mode]'),
@@ -507,6 +509,7 @@ export function startProximity(
             : `No ${label} route for ${fallback} of ${ranked.length} locations · straight-line shown for those.`,
         );
       }
+      routeRetry.hidden = fallback === 0;
       isLoadingDistances = false;
       host.classList.remove('is-routing');
       for (const btn of routeModeButtons) {
@@ -520,6 +523,7 @@ export function startProximity(
         const message = `Could not fetch ${label} routes · showing straight-line distance`;
         hint.textContent = message;
         showStatus(message);
+        routeRetry.hidden = false;
       }
     } finally {
       if (distanceAbort === controller) {
@@ -532,6 +536,16 @@ export function startProximity(
       }
     }
   }
+
+  routeRetry.addEventListener(
+    'click',
+    () => {
+      clearRouteCache();
+      routeRetry.hidden = true;
+      render();
+    },
+    { signal: session.signal },
+  );
 
   function focusRoute(
     place: Place & { geometry?: Array<[number, number]> },
@@ -804,6 +818,7 @@ export function startProximity(
     }
 
     const hasNodes = Boolean(dest) || state.locations.length > 0;
+    if (state.distanceMode === 'straight') routeRetry.hidden = true;
     const selected = selectedLocationId
       ? ranked.find((place) => place.id === selectedLocationId)
       : undefined;

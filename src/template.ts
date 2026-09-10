@@ -98,6 +98,7 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 		<div class="px-map-wrap">
 			<div data-px-map class="px-map" role="application" aria-label="${esc(t.mapLabel)}"></div>
 			<p data-px-hint class="px-hint" hidden>Click the map to set a destination</p>
+			<button type="button" data-route-retry class="px-map-retry" hidden>Retry routes</button>
 			<div data-px-empty class="px-map-empty">
 				<div class="px-empty-guide" aria-label="${esc(t.howTo)}">
 					<strong>${esc(t.startHere)}</strong>

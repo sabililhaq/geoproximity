@@ -26,9 +26,17 @@ export function bindSearch(
     if (hits.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'px-empty';
-      empty.textContent = unavailable
-        ? 'Search is unavailable right now · try pasting coordinates (lat, lon)'
-        : 'No results';
+      if (unavailable) {
+        empty.append('Search is unavailable right now · ');
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'px-retry';
+        retry.textContent = 'Retry search';
+        retry.addEventListener('click', () => void run());
+        empty.append(retry);
+      } else {
+        empty.textContent = 'No results';
+      }
       results.append(empty);
       results.hidden = false;
       return;

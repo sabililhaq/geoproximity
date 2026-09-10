@@ -27,6 +27,7 @@ describe('proximity markup', () => {
       'aria-describedby="px-anim-help"',
       'aria-label="Display settings"',
       'data-px-map',
+      'data-route-retry',
     ]) {
       expect(proximityMarkup).toContain(hook);
     }

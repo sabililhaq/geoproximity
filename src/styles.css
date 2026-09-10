@@ -349,6 +349,18 @@
   cursor: pointer;
 }
 
+.px-retry {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 .px-results .px-empty {
   color: var(--px-muted);
   cursor: default;
@@ -690,6 +702,28 @@ summary:focus-visible,
   font-size: 0.75rem;
   pointer-events: none;
   white-space: nowrap;
+}
+
+.px-map-retry {
+  position: absolute;
+  left: 50%;
+  bottom: 6rem;
+  transform: translateX(-50%);
+  z-index: 500;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--px-border);
+  border-radius: 999px;
+  background: var(--px-fill);
+  color: var(--px-ink);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.12);
+}
+
+.px-map-retry:hover,
+.px-map-retry:focus-visible {
+  border-color: var(--accent);
 }
 
 .px-map-empty {
