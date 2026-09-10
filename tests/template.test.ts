@@ -28,6 +28,7 @@ describe('proximity markup', () => {
       'aria-label="Display settings"',
       'data-px-map',
       'data-route-retry',
+      'data-loc-count',
     ]) {
       expect(proximityMarkup).toContain(hook);
     }

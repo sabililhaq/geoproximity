@@ -62,7 +62,7 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 				</section>
 
 				<section class="px-section">
-					<h2>${esc(t.locations)}</h2>
+					<h2>${esc(t.locations)}<span data-loc-count class="px-loc-count" aria-hidden="true"></span></h2>
 					<form data-loc-form class="px-search">
 						<label class="px-sr" for="px-loc-input">${esc(t.locPlaceholder)}</label>
 						<input id="px-loc-input" data-loc-input type="search" placeholder="${esc(t.locPlaceholder)}" autocomplete="off" enterkeyhint="search" />

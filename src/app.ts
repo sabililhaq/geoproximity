@@ -105,6 +105,7 @@ export function startProximity(
   const locResults = qs(root, '[data-loc-results]');
   const locList = qs<HTMLUListElement>(root, '[data-loc-list]');
   const locEmpty = qs(root, '[data-loc-empty]');
+  const locCount = qs(root, '[data-loc-count]');
   const useLocationBtn = qs<HTMLButtonElement>(root, '[data-use-location]');
   const fitBtn = qs<HTMLButtonElement>(root, '[data-fit]');
   const clearBtn = qs<HTMLButtonElement>(root, '[data-clear]');
@@ -686,6 +687,7 @@ export function startProximity(
     }
 
     locList.replaceChildren();
+    locCount.textContent = ranked.length > 0 ? ` (${ranked.length})` : '';
     locEmpty.hidden = ranked.length > 0;
     locList.hidden = ranked.length === 0;
     for (const [index, place] of ranked.entries()) {
@@ -789,6 +791,10 @@ export function startProximity(
             ? `No ${modeLabel(state.distanceMode)} route found · straight-line estimate`
             : 'Routing service unavailable · straight-line estimate';
       }
+      row.setAttribute(
+        'aria-label',
+        `${place.name}, rank ${index + 1}${kmLabel ? `, ${kmLabel}` : ''}${place.error ? ', approximate route' : ''}`,
+      );
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'px-row-remove';

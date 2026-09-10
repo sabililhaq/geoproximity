@@ -271,6 +271,12 @@
   margin-bottom: 0.45rem;
 }
 
+.px-loc-count {
+  color: var(--px-muted);
+  font-size: 0.78em;
+  font-weight: 500;
+}
+
 .px-search-mode {
   display: flex;
   gap: 0.8rem;
