@@ -45,7 +45,13 @@ export function bindSearch(
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'px-hit';
-      btn.textContent = hit.name;
+      const title = document.createElement('strong');
+      title.className = 'px-hit-title';
+      title.textContent = hit.shortName || hit.name;
+      const context = document.createElement('span');
+      context.className = 'px-hit-context';
+      context.textContent = hit.name !== hit.shortName ? hit.name : '';
+      btn.append(title, context);
       btn.addEventListener('click', () => {
         onPick({
           id: crypto.randomUUID(),

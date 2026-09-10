@@ -349,6 +349,23 @@
   cursor: pointer;
 }
 
+.px-hit-title,
+.px-hit-context {
+  display: block;
+}
+
+.px-hit-title {
+  font-weight: 650;
+}
+
+.px-hit-context {
+  overflow: hidden;
+  color: var(--px-muted);
+  font-size: 0.78em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .px-retry {
   appearance: none;
   padding: 0;

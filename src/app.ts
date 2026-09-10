@@ -624,8 +624,17 @@ export function startProximity(
         icon: destIcon(),
         zIndexOffset: 600,
         title: dest.name,
+        draggable: true,
       })
         .bindPopup(popupContent(dest.name))
+        .on('dragend', (event) => {
+          const point = event.target.getLatLng();
+          dest.lat = point.lat;
+          dest.lon = point.lng;
+          clearRouteCache();
+          render();
+          showStatus(`Moved ${dest.name}.`);
+        })
         .addTo(overlay);
       const destEl = destMarker.getElement();
       if (destEl) {
@@ -686,10 +695,19 @@ export function startProximity(
         icon: locIcon(index + 1, isSelected),
         zIndexOffset: isSelected ? 550 : 400,
         title: place.name,
+        draggable: true,
       })
         .bindPopup(popupContent(kmLabel ? `${place.name} · ${kmLabel}` : place.name))
         .on('click', () => {
           selectLocation(place.id, ranked, { fit: true });
+        })
+        .on('dragend', (event) => {
+          const point = event.target.getLatLng();
+          place.lat = point.lat;
+          place.lon = point.lng;
+          clearRouteCache();
+          render();
+          showStatus(`Moved ${place.name}.`);
         })
         .addTo(overlay);
       const locEl = locMarker.getElement();
