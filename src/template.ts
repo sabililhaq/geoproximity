@@ -25,7 +25,7 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 				</div>
 				<details class="px-advanced">
 					<summary>${esc(t.advanced)}</summary>
-					<div class="px-advanced-body" role="group" aria-label="Route animation">
+					<div class="px-advanced-body" role="group" aria-label="Display settings">
 						<button type="button" class="px-toggle" data-route-animation role="switch" aria-checked="true" aria-describedby="px-anim-help">
 							<span>${esc(t.animateRoutes)}</span>
 							<span class="px-switch" aria-hidden="true"></span>
@@ -36,6 +36,11 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 							<span class="px-switch" aria-hidden="true"></span>
 						</button>
 						<p id="px-anim-reverse-help" class="px-sr" data-route-animation-reverse-help>When on, dashes flow from the destination toward locations. Requires Animate routes.</p>
+						<button type="button" class="px-toggle" data-mapless-toggle role="switch" aria-checked="false" aria-describedby="px-mapless-help">
+							<span>${esc(t.mapless)}</span>
+							<span class="px-switch" aria-hidden="true"></span>
+						</button>
+						<p id="px-mapless-help" class="px-sr" data-mapless-help>${esc(t.maplessHelp)}</p>
 					</div>
 				</details>
 				<section class="px-section">

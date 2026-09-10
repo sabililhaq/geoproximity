@@ -20,10 +20,11 @@ describe('proximity markup', () => {
       'data-rank-metric="distance"',
       'data-route-animation',
       'data-route-animation-reverse',
+      'data-mapless-toggle',
       'role="switch"',
       'aria-checked="true"',
       'aria-describedby="px-anim-help"',
-      'aria-label="Route animation"',
+      'aria-label="Display settings"',
       'data-px-map',
     ]) {
       expect(proximityMarkup).toContain(hook);
@@ -50,6 +51,7 @@ describe('proximity markup', () => {
     expect(proximityMarkup).toContain('data-route-animation-reverse');
     expect(proximityMarkup).toContain('role="switch"');
     expect(proximityMarkup).toContain('px-anim-help');
+    expect(proximityMarkup).toContain('px-mapless-help');
     expect(proximityMarkup.indexOf('px-advanced')).toBeLessThan(
       proximityMarkup.indexOf('data-route-animation'),
     );

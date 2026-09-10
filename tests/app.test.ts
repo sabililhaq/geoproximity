@@ -269,6 +269,22 @@ describe('bulk location paste', () => {
   });
 });
 
+describe('map-less view', () => {
+  it('toggles the full-width comparison layout', () => {
+    const { root, stop } = mountWithHash({ destination: dest, locations: [london] });
+    cleanups.push(stop);
+
+    const toggle = root.querySelector<HTMLButtonElement>('[data-mapless-toggle]')!;
+    expect(root.querySelector('[data-proximity]')?.classList.contains('px-mapless')).toBe(false);
+    toggle.click();
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    expect(root.querySelector('[data-proximity]')?.classList.contains('px-mapless')).toBe(true);
+    toggle.click();
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(root.querySelector('[data-proximity]')?.classList.contains('px-mapless')).toBe(false);
+  });
+});
+
 describe('mobile keyboard viewport', () => {
   it('keeps the host anchored while the visual viewport shrinks', () => {
     const previousViewport = window.visualViewport;

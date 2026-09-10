@@ -9,6 +9,8 @@ export type UiLabels = {
   advanced: string;
   animateRoutes: string;
   reverseDirection: string;
+  mapless: string;
+  maplessHelp: string;
   destination: string;
   locations: string;
   destPlaceholder: string;
@@ -41,6 +43,8 @@ export const defaultLabels: UiLabels = {
   advanced: 'Advanced settings',
   animateRoutes: 'Animate routes',
   reverseDirection: 'Reverse direction',
+  mapless: 'List only',
+  maplessHelp: 'Hide the map and show the ranked comparison list.',
   destination: 'Destination',
   locations: 'Locations',
   destPlaceholder: 'Search, coordinates, or Maps link',

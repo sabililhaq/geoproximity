@@ -125,6 +125,7 @@ export function startProximity(
   const routeAnimationHelp = qs(root, '[data-route-animation-help]');
   const routeAnimationReverseToggle = qs<HTMLButtonElement>(root, '[data-route-animation-reverse]');
   const routeAnimationReverseHelp = qs(root, '[data-route-animation-reverse-help]');
+  const maplessToggle = qs<HTMLButtonElement>(root, '[data-mapless-toggle]');
   const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   let statusTimer = 0;
   let isLoadingDistances = false;
@@ -1179,6 +1180,11 @@ export function startProximity(
     applyRouteAnimation();
   }
 
+  function applyMaplessView() {
+    host.classList.toggle('px-mapless', switchOn(maplessToggle));
+    map.invalidateSize();
+  }
+
   routeAnimationToggle.addEventListener(
     'click',
     () => {
@@ -1190,6 +1196,14 @@ export function startProximity(
     'click',
     () => {
       onAnimationSwitchClick(routeAnimationReverseToggle);
+    },
+    { signal: session.signal },
+  );
+  maplessToggle.addEventListener(
+    'click',
+    () => {
+      setSwitchOn(maplessToggle, !switchOn(maplessToggle));
+      applyMaplessView();
     },
     { signal: session.signal },
   );
