@@ -23,6 +23,7 @@ describe('proximity control panel surfaces', () => {
     expect(css).toMatch(
       /\.leaflet-control-scale-line \{[\s\S]*?background: color-mix\(in srgb, var\(--px-fill\) 48%, transparent\);/,
     );
+    expect(css).toMatch(/\.px-hint \{[\s\S]*?bottom: 3\.3rem;/);
   });
 
   it('uses larger touch targets and stretches the control row across the container', () => {
