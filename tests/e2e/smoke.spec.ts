@@ -103,7 +103,7 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
-    await expect(page.locator('[data-rank-by]')).toBeHidden();
+    await expect(page.locator('[data-rank-by]')).toHaveCount(0);
     const last = page.getByRole('option').last();
     await last.scrollIntoViewIfNeeded();
     await expect(last).toBeInViewport();

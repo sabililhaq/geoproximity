@@ -120,10 +120,6 @@ export function startProximity(
   const routeModeButtons = Array.from(
     root.querySelectorAll<HTMLButtonElement>('[data-route-mode]'),
   );
-  const rankByGroup = root.querySelector('[data-rank-by]') as HTMLElement | null;
-  const rankMetricButtons = Array.from(
-    root.querySelectorAll<HTMLButtonElement>('[data-rank-metric]'),
-  );
   const routeAnimationToggle = qs<HTMLButtonElement>(root, '[data-route-animation]');
   const routeAnimationHelp = qs(root, '[data-route-animation-help]');
   const routeAnimationReverseToggle = qs<HTMLButtonElement>(root, '[data-route-animation-reverse]');
@@ -142,7 +138,6 @@ export function startProximity(
   let labelsPermanent = false;
   let overlayMarkers = new Map<string, L.Marker>();
   /** Driving/walking default to time; straight-line always ranks by distance. */
-  let rankByTime = true;
   const state: ProximityState = {
     destination: null,
     locations: [],
@@ -349,7 +344,7 @@ export function startProximity(
   }
 
   function sortRanked(places: RankedPlace[]): RankedPlace[] {
-    const byTime = rankByTime && state.distanceMode !== 'straight';
+    const byTime = state.distanceMode !== 'straight';
     return [...places].sort((a, b) => {
       if (byTime) {
         const at =
@@ -634,13 +629,6 @@ export function startProximity(
         btn.dataset.routeMode === state.distanceMode ? 'true' : 'false',
       );
     }
-    if (rankByGroup) {
-      rankByGroup.hidden = state.distanceMode === 'straight';
-    }
-    for (const btn of rankMetricButtons) {
-      const isTime = btn.dataset.rankMetric === 'time';
-      btn.setAttribute('aria-pressed', isTime === rankByTime ? 'true' : 'false');
-    }
     applyRouteAnimation();
 
     labelsPermanent = map.getZoom() >= LABEL_ZOOM;
@@ -917,7 +905,7 @@ export function startProximity(
     }
     writeStoredState(state);
 
-    const orderKey = `${state.distanceMode}:${rankByTime ? 'time' : 'km'}:${ranked.map((place) => place.id).join(',')}`;
+    const orderKey = `${state.distanceMode}:${ranked.map((place) => place.id).join(',')}`;
     if (
       lastRankAnnouncement &&
       orderKey !== lastRankAnnouncement &&
@@ -928,7 +916,7 @@ export function startProximity(
     ) {
       const top = ranked[0]!;
       const metric = placeMetricLabel(top);
-      const by = state.distanceMode === 'straight' || !rankByTime ? 'distance' : 'time';
+      const by = state.distanceMode === 'straight' ? 'distance' : 'time';
       showStatus(
         metric
           ? `Ranked by ${by} · ${top.name} is closest at ${metric}`
@@ -1240,19 +1228,6 @@ export function startProximity(
         if (mode === state.distanceMode) return;
         selectedLocationId = null;
         state.distanceMode = mode;
-        render();
-      },
-      { signal: session.signal },
-    );
-  }
-
-  for (const btn of rankMetricButtons) {
-    btn.addEventListener(
-      'click',
-      () => {
-        const next = btn.dataset.rankMetric === 'time';
-        if (next === rankByTime) return;
-        rankByTime = next;
         render();
       },
       { signal: session.signal },

@@ -39,10 +39,6 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 						<button type="button" data-route-mode="driving" aria-pressed="false">${esc(t.driving)}</button>
 						<button type="button" data-route-mode="walking" aria-pressed="false">${esc(t.walking)}</button>
 					</div>
-					<div class="px-seg" role="group" aria-label="${esc(t.rankBy)}" data-rank-by hidden>
-						<button type="button" data-rank-metric="time" aria-pressed="true">${esc(t.time)}</button>
-						<button type="button" data-rank-metric="distance" aria-pressed="false">${esc(t.distance)}</button>
-					</div>
 				</div>
 					<p data-loc-empty class="px-list-empty">${esc(t.locEmpty)}</p>
 					<ul data-loc-list class="px-list" role="listbox" aria-label="${esc(t.rankedLocations)}" hidden></ul>
