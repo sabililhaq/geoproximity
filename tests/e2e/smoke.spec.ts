@@ -34,6 +34,56 @@ test('loads the bundled sample', async ({ page }) => {
   await expect(page.getByText('Warunk Upnormal')).toBeVisible();
 });
 
+test('puts the comparison task before display settings', async ({ page }) => {
+  await page.goto('/');
+  const order = await page.locator('.px-sidebar-body').evaluate((body) => {
+    const destination = body.querySelector('[data-dest-current]')!;
+    const input = body.querySelector('[data-loc-input]')!;
+    const modes = body.querySelector('.px-route-row')!;
+    const settings = body.querySelector('.px-advanced')!;
+    return [destination, input, modes].every((element, index, elements) =>
+      Boolean(
+        element.compareDocumentPosition(elements[index + 1] ?? settings) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    );
+  });
+  expect(order).toBe(true);
+});
+
+test('expands the mobile map and returns to the comparison', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const count = await page.getByRole('option').count();
+  await page.getByRole('button', { name: 'Expand map' }).click();
+  await expect(page.locator('.px-sidebar')).toBeHidden();
+  await expect(page.locator('.px-map-wrap')).toBeVisible();
+  await page.getByRole('button', { name: 'Show places' }).click();
+  await expect(page.locator('.px-sidebar')).toBeVisible();
+  await expect(page.getByRole('option')).toHaveCount(count);
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await expect(page.locator('[data-view-toggle]')).toBeHidden();
+});
+
+test('changes a destination without discarding it on cancel', async ({ page }) => {
+  await page.goto('/');
+  const card = page.locator('[data-dest-current]');
+  const input = page.locator('[data-dest-input]');
+  const count = await page.getByRole('option').count();
+  await expect(input).toBeHidden();
+  await card.getByRole('button', { name: 'Change' }).click();
+  await expect(input).toBeFocused();
+  await card.getByRole('button', { name: 'Cancel' }).click();
+  await expect(card).toContainText('Jalan Braga');
+  await expect(input).toBeHidden();
+  await card.getByRole('button', { name: 'Change' }).click();
+  await input.fill('48.8566, 2.3522');
+  await input.press('Enter');
+  await expect(card).toContainText('48.8566');
+  await expect(input).toBeHidden();
+  await expect(page.getByRole('option')).toHaveCount(count);
+});
+
 test('adds a place from pasted coordinates', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Clear all locations' }).click();

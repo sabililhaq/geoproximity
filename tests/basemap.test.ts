@@ -4,19 +4,19 @@ import { cartoTileUrl, resolveCartoApiKey } from '../src/basemap';
 describe('cartoTileUrl', () => {
   it('uses the light raster style by default', () => {
     expect(cartoTileUrl(undefined)).toBe(
-      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
     );
   });
 
   it('uses the dark raster style', () => {
     expect(cartoTileUrl('dark')).toBe(
-      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
     );
   });
 
   it('appends a trimmed key query parameter', () => {
     expect(cartoTileUrl('light', '  abc123  ')).toBe(
-      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=abc123',
+      'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=abc123',
     );
   });
 

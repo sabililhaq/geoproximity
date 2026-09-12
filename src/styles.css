@@ -1,4 +1,5 @@
 [data-proximity] {
+  position: relative;
   --px-border: rgb(var(--gray-light));
   --px-muted: rgb(var(--gray));
   --px-ink: rgb(var(--gray-dark));
@@ -29,6 +30,44 @@
   font-family: var(--font-atkinson, inherit);
   font-size: 15px;
   line-height: 1.45;
+}
+
+.px-view-toggle {
+  display: none;
+}
+
+@container px (max-width: 767px) {
+  .px-view-toggle {
+    display: block;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1000;
+    min-height: 44px;
+    padding: 0.5rem 0.85rem;
+    border: 1px solid var(--px-border);
+    border-radius: 8px;
+    background: var(--px-wash);
+    color: var(--px-ink);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .px-map-expanded:not(.is-keyboard-open) .px-layout {
+    grid-template-areas: 'map';
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .px-map-expanded:not(.is-keyboard-open) .px-sidebar,
+  .px-map-expanded:not(.is-keyboard-open) .px-resizer {
+    display: none;
+  }
+}
+
+[data-proximity].is-keyboard-open .px-view-toggle,
+[data-proximity].px-mapless .px-view-toggle {
+  display: none;
 }
 
 @media (min-width: 820px) {
@@ -131,25 +170,24 @@
   padding: 0.9rem 1rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 1rem;
   -webkit-overflow-scrolling: touch;
 }
 
-.px-section + .px-section {
-  margin-top: 1.15rem;
-}
-
-.px-section:last-child {
+.px-section {
   flex: none;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
 }
 
-.px-route-row + .px-section,
-.px-section + .px-route-row,
-.px-advanced + .px-section {
-  margin-top: 0.8rem;
+.px-section > h2,
+.px-section > .px-dest-card,
+.px-section > .px-list,
+.px-section > .px-list-empty,
+.px-section > .px-btn-row {
+  margin: 0;
 }
 
 .px-advanced {
@@ -1099,7 +1137,7 @@ summary:focus-visible,
     min-height: 0;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
-    gap: 0.9rem;
+    gap: 1rem;
   }
 
   .px-actions {
@@ -1115,10 +1153,6 @@ summary:focus-visible,
   .px-sidebar-body {
     padding: 0.7rem 1rem 0.75rem;
     box-shadow: inset 0 -14px 14px -18px rgba(0, 0, 0, 0.65);
-  }
-
-  .px-section + .px-section {
-    margin-top: 0.85rem;
   }
 
   .px-row {
@@ -1206,7 +1240,7 @@ summary:focus-visible,
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
     box-shadow: inset 0 -14px 14px -18px rgba(0, 0, 0, 0.65);
-    gap: 0.9rem;
+    gap: 1rem;
   }
 
   .px-sidebar-body::-webkit-scrollbar {

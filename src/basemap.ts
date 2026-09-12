@@ -1,6 +1,7 @@
 export function cartoTileUrl(theme: string | undefined, apiKey = ''): string {
   const style = theme === 'dark' ? 'dark_all' : 'light_all';
-  const url = `https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png`;
+  // Keep tiles on one origin so HTTP/2 can reuse the preconnected socket.
+  const url = `https://a.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png`;
   const key = apiKey.trim();
   return key ? `${url}?key=${encodeURIComponent(key)}` : url;
 }

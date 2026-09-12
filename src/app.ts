@@ -152,6 +152,21 @@ export function startProximity(
   shareBtn.hidden = !options.share;
 
   const session = new AbortController();
+  const viewToggle = qs<HTMLButtonElement>(root, '[data-view-toggle]');
+  viewToggle.addEventListener(
+    'click',
+    () => {
+      const expanded = host.classList.toggle('px-map-expanded');
+      host.classList.remove('px-mapless');
+      setSwitchOn(maplessToggle, false);
+      viewToggle.setAttribute('aria-pressed', String(expanded));
+      qs(root, '[data-expand-label]').hidden = expanded;
+      qs(root, '[data-places-label]').hidden = !expanded;
+      map.invalidateSize();
+    },
+    { signal: session.signal },
+  );
+  let editingDestination = false;
   const map = L.map(mapEl, { worldCopyJump: true }).setView([20, 0], 2);
   L.control.scale({ maxWidth: 120 }).addTo(map);
   const cartoApiKey = resolveCartoApiKey(options.cartoApiKey);
@@ -159,7 +174,6 @@ export function startProximity(
   const addTiles = () => {
     const layer = L.tileLayer(cartoTileUrl(document.documentElement.dataset.theme, cartoApiKey), {
       maxZoom: 19,
-      subdomains: 'abcd',
       attribution: CARTO_ATTRIBUTION,
     }).addTo(map);
     layer.on('tileerror', () => {
@@ -641,8 +655,8 @@ export function startProximity(
       markers.get(place.id)?.openPopup();
     }
 
-    destForm.hidden = Boolean(dest);
-    destTools.hidden = Boolean(dest);
+    destForm.hidden = Boolean(dest) && !editingDestination;
+    destTools.hidden = Boolean(dest) && !editingDestination;
 
     if (dest) {
       const destMarker = L.marker([dest.lat, dest.lon], {
@@ -694,14 +708,16 @@ export function startProximity(
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'px-dest-remove';
-      remove.textContent = 'Remove';
+      remove.textContent = editingDestination ? 'Cancel' : 'Change';
       remove.addEventListener('click', () => {
-        const snap = snapshotState();
-        const name = dest.name;
-        selectedLocationId = null;
-        state.destination = null;
+        editingDestination = !editingDestination;
         render();
-        showUndo(`Removed ${name}.`, snap);
+        if (editingDestination) {
+          destInput.value = '';
+          destInput.focus();
+        } else {
+          destCurrent.querySelector('button')?.focus();
+        }
       });
       destCurrent.append(copy, remove);
     } else {
@@ -1014,6 +1030,7 @@ export function startProximity(
   }
 
   function setDestination(place: Place) {
+    editingDestination = false;
     state.destination = place;
     state.locations = state.locations.filter((item) => !samePlace(item, place));
     render();

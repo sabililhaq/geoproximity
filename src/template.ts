@@ -8,10 +8,31 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
   const t = mergeLabels(labels);
   return `
 <div data-proximity>
+	<button type="button" class="px-view-toggle" data-view-toggle aria-pressed="false"><span data-expand-label>${esc(t.expandMap)}</span><span data-places-label hidden>${esc(t.showPlaces)}</span></button>
 	<div class="px-layout">
 		<aside class="px-sidebar">
 			<div class="px-sidebar-body">
 				<p data-io-status class="px-io-status" role="status" aria-live="polite" hidden></p>
+				<section class="px-section">
+					<h2>${esc(t.destination)}</h2>
+					<form data-dest-form class="px-search">
+						<label class="px-sr" for="px-dest-input">${esc(t.destPlaceholder)}</label>
+						<input id="px-dest-input" data-dest-input type="search" placeholder="${esc(t.destPlaceholder)}" autocomplete="off" enterkeyhint="search" />
+						<div data-dest-results class="px-results" hidden></div>
+					</form>
+					<div class="px-btn-row" data-dest-tools>
+						<button type="button" data-use-location>${esc(t.useMyLocation)}</button>
+					</div>
+					<div data-dest-current class="px-dest-card" hidden></div>
+				</section>
+
+				<section class="px-section">
+					<h2>${esc(t.locations)}<span data-loc-count class="px-loc-count" aria-hidden="true"></span></h2>
+					<form data-loc-form class="px-search">
+						<label class="px-sr" for="px-loc-input">${esc(t.locPlaceholder)}</label>
+						<input id="px-loc-input" data-loc-input type="search" placeholder="${esc(t.locPlaceholder)}" autocomplete="off" enterkeyhint="search" />
+						<div data-loc-results class="px-results" hidden></div>
+					</form>
 				<div class="px-route-row">
 					<div class="px-seg" role="group" aria-label="${esc(t.distanceMethod)}">
 						<button type="button" data-route-mode="straight" aria-pressed="true">${esc(t.straightLine)}</button>
@@ -23,6 +44,9 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 						<button type="button" data-rank-metric="distance" aria-pressed="false">${esc(t.distance)}</button>
 					</div>
 				</div>
+					<p data-loc-empty class="px-list-empty">${esc(t.locEmpty)}</p>
+					<ul data-loc-list class="px-list" role="listbox" aria-label="${esc(t.rankedLocations)}" hidden></ul>
+				</section>
 				<details class="px-advanced">
 					<summary>${esc(t.advanced)}</summary>
 					<div class="px-advanced-body" role="group" aria-label="Display settings">
@@ -48,29 +72,6 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 						<p id="px-scale-help" class="px-sr" data-scale-help>${esc(t.showScaleHelp)}</p>
 					</div>
 				</details>
-				<section class="px-section">
-					<h2>${esc(t.destination)}</h2>
-					<form data-dest-form class="px-search">
-						<label class="px-sr" for="px-dest-input">${esc(t.destPlaceholder)}</label>
-						<input id="px-dest-input" data-dest-input type="search" placeholder="${esc(t.destPlaceholder)}" autocomplete="off" enterkeyhint="search" />
-						<div data-dest-results class="px-results" hidden></div>
-					</form>
-					<div class="px-btn-row" data-dest-tools>
-						<button type="button" data-use-location>${esc(t.useMyLocation)}</button>
-					</div>
-					<div data-dest-current class="px-dest-card" hidden></div>
-				</section>
-
-				<section class="px-section">
-					<h2>${esc(t.locations)}<span data-loc-count class="px-loc-count" aria-hidden="true"></span></h2>
-					<form data-loc-form class="px-search">
-						<label class="px-sr" for="px-loc-input">${esc(t.locPlaceholder)}</label>
-						<input id="px-loc-input" data-loc-input type="search" placeholder="${esc(t.locPlaceholder)}" autocomplete="off" enterkeyhint="search" />
-						<div data-loc-results class="px-results" hidden></div>
-					</form>
-					<p data-loc-empty class="px-list-empty">${esc(t.locEmpty)}</p>
-					<ul data-loc-list class="px-list" role="listbox" aria-label="${esc(t.rankedLocations)}" hidden></ul>
-				</section>
 			</div>
 
 			<div class="px-actions">

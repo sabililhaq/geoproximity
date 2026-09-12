@@ -1,4 +1,6 @@
 export type UiLabels = {
+  expandMap: string;
+  showPlaces: string;
   distanceMethod: string;
   straightLine: string;
   driving: string;
@@ -35,6 +37,8 @@ export type UiLabels = {
 };
 
 export const defaultLabels: UiLabels = {
+  expandMap: 'Expand map',
+  showPlaces: 'Show places',
   distanceMethod: 'Distance method',
   straightLine: 'Straight line',
   driving: 'Driving',
@@ -50,7 +54,7 @@ export const defaultLabels: UiLabels = {
   showScale: 'Show scale ruler',
   showScaleHelp: 'Show the map distance scale.',
   destination: 'Destination',
-  locations: 'Locations',
+  locations: 'Places to compare',
   destPlaceholder: 'Search, coordinates, or Maps link',
   locPlaceholder: 'Search, coordinates, or Maps link',
   useMyLocation: 'Use my location',

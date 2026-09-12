@@ -157,6 +157,12 @@ if (host instanceof HTMLElement) {
 }
 ```
 
+For faster initial tiles, add this connection hint to the host page's `<head>` so the browser can connect while the widget's JavaScript loads:
+
+```html
+<link rel="preconnect" href="https://a.basemaps.cartocdn.com" />
+```
+
 The host element needs a defined height. Geoproximity fills the available space and inherits the host's font and color tokens.
 
 Pass `sample: true` to load the bundled Bandung example when the map is empty, so a first visit is a comparison instead of a blank form. Pass your own GeoJSON-like `{ destination, locations }` object instead of `true` to ship a different default. Override UI copy with `labels: { driving: 'Mobil', ... }`.
