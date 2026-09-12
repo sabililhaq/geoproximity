@@ -208,8 +208,9 @@ export function startProximity(
       if (!isDragging) return;
       const delta = isVertical ? startPos - e.clientY : e.clientX - startPos;
       if (isVertical) {
-        const maxSize = Math.max(200, layout.clientHeight - 230);
-        const newSize = Math.min(maxSize, Math.max(200, startSize + delta));
+        const minMapSize = Math.min(220, layout.clientHeight * 0.35);
+        const maxSize = Math.max(0, layout.clientHeight - minMapSize - 10);
+        const newSize = Math.min(maxSize, Math.max(Math.min(200, maxSize), startSize + delta));
         layout.style.setProperty('--px-sidebar-h', `${newSize}px`);
       } else {
         const newSize = Math.max(200, startSize + delta);
@@ -231,9 +232,33 @@ export function startProximity(
   resize.observe(host);
 
   const visualViewport = window.visualViewport;
+  let inputVisibilityFrame = 0;
+  const keepFocusedInputVisible = () => {
+    cancelAnimationFrame(inputVisibilityFrame);
+    inputVisibilityFrame = requestAnimationFrame(() => {
+      if (session.signal.aborted) return;
+      const input = document.activeElement;
+      if (!(input instanceof HTMLInputElement) || !host.contains(input)) return;
+      const scroller = input.closest<HTMLElement>('.px-sidebar-body');
+      if (!scroller) return;
+      const field = input.getBoundingClientRect();
+      const panel = scroller.getBoundingClientRect();
+      const viewportTop = visualViewport?.offsetTop ?? 0;
+      const viewportBottom = viewportTop + (visualViewport?.height ?? window.innerHeight);
+      const top = Math.max(panel.top, viewportTop) + 12;
+      const bottom = Math.min(panel.bottom, viewportBottom) - 12;
+      // Scroll only the controls, avoiding a second browser-level viewport pan.
+      if (field.bottom > bottom) scroller.scrollTop += field.bottom - bottom;
+      else if (field.top < top) scroller.scrollTop -= top - field.top;
+    });
+  };
   const syncKeyboardViewport = () => {
-    if (!visualViewport) return;
-    const keyboardOpen = visualViewport.height < window.innerHeight - 120;
+    if (!visualViewport) {
+      keepFocusedInputVisible();
+      return;
+    }
+    // Pinch zoom also shrinks the visual viewport; compare at the layout scale.
+    const keyboardOpen = visualViewport.height * visualViewport.scale < window.innerHeight - 120;
     host.classList.toggle('is-keyboard-open', keyboardOpen);
     if (keyboardOpen) {
       host.style.height = `${Math.max(1, visualViewport.height)}px`;
@@ -243,6 +268,7 @@ export function startProximity(
       host.style.removeProperty('transform');
     }
     map.invalidateSize();
+    keepFocusedInputVisible();
   };
   if (visualViewport) {
     visualViewport.addEventListener('resize', syncKeyboardViewport, {
@@ -257,13 +283,11 @@ export function startProximity(
     (event) => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement)) return;
-      window.setTimeout(() => {
-        syncKeyboardViewport();
-        target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      }, 80);
+      syncKeyboardViewport();
     },
     { signal: session.signal },
   );
+  window.addEventListener('resize', syncKeyboardViewport, { signal: session.signal });
 
   /** Move DOM focus to the rendered row for `placeId`, if it exists. */
   function focusRow(placeId: string | null) {
@@ -1330,8 +1354,7 @@ export function startProximity(
 
   const shareHash = window.location.hash;
   const shared = options.share ? readShareHash(shareHash) : null;
-  const invalidShared =
-    options.share && /^#(?:px|proximity)=/.test(shareHash) && shared === null;
+  const invalidShared = options.share && /^#(?:px|proximity)=/.test(shareHash) && shared === null;
   const stored = shared ? null : readStoredState();
   if (shared) {
     if (shared.distanceMode) state.distanceMode = shared.distanceMode;

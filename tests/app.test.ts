@@ -302,16 +302,17 @@ describe('scale ruler visibility', () => {
 
 describe('mobile keyboard viewport', () => {
   it('keeps the host anchored while the visual viewport shrinks', () => {
-    const previousViewport = window.visualViewport;
+    const previousViewport = Object.getOwnPropertyDescriptor(window, 'visualViewport');
     const listeners = new Map<string, () => void>();
     const viewport = {
       height: window.innerHeight,
+      scale: 1,
       offsetTop: 0,
       addEventListener: (type: string, listener: EventListenerOrEventListenerObject) => {
         listeners.set(type, listener as () => void);
       },
       removeEventListener: () => {},
-    } as unknown as VisualViewport;
+    };
     Object.defineProperty(window, 'visualViewport', {
       configurable: true,
       value: viewport,
@@ -337,14 +338,16 @@ describe('mobile keyboard viewport', () => {
       expect(host.classList.contains('is-keyboard-open')).toBe(false);
       expect(host.style.height).toBe('');
       expect(host.style.transform).toBe('');
+
+      viewport.height = window.innerHeight / 2;
+      viewport.scale = 2;
+      listeners.get('resize')!();
+      expect(host.classList.contains('is-keyboard-open')).toBe(false);
     } finally {
       if (previousViewport) {
-        Object.defineProperty(window, 'visualViewport', {
-          configurable: true,
-          value: previousViewport,
-        });
+        Object.defineProperty(window, 'visualViewport', previousViewport);
       } else {
-        delete (window as Window & { visualViewport?: VisualViewport }).visualViewport;
+        Reflect.deleteProperty(window, 'visualViewport');
       }
     }
   });
