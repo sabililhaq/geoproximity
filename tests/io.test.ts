@@ -59,6 +59,22 @@ describe('parseProximityJson', () => {
     ).toBe(false);
   });
 
+  it('reads several origins and keeps destination as the first', () => {
+    const lyon = { name: 'Lyon', lat: 45.764, lon: 4.8357 };
+    const result = parseProximityJson(
+      JSON.stringify({
+        destination: paris,
+        origins: [paris, lyon],
+        locations: [london],
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.destination).toEqual(paris);
+    expect(result.data.origins).toEqual([paris, lyon]);
+    expect(result.data.locations).toEqual([london]);
+  });
+
   it('reads the bundled Bandung sample', () => {
     const result = parseProximityJson(readFileSync(samplePath, 'utf-8'));
     expect(result.ok).toBe(true);

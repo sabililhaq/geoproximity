@@ -14,7 +14,7 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 			<div class="px-sidebar-body">
 				<p data-io-status class="px-io-status" role="status" aria-live="polite" hidden></p>
 				<section class="px-section">
-					<h2>${esc(t.destination)}</h2>
+					<h2>${esc(t.destination)}<span data-origin-count class="px-loc-count" aria-hidden="true"></span></h2>
 					<form data-dest-form class="px-search">
 						<label class="px-sr" for="px-dest-input">${esc(t.destPlaceholder)}</label>
 						<input id="px-dest-input" data-dest-input type="search" placeholder="${esc(t.destPlaceholder)}" autocomplete="off" enterkeyhint="search" />
@@ -23,7 +23,8 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 					<div class="px-btn-row" data-dest-tools>
 						<button type="button" data-use-location>${esc(t.useMyLocation)}</button>
 					</div>
-					<div data-dest-current class="px-dest-card" hidden></div>
+					<p data-origin-empty class="px-list-empty">${esc(t.originEmpty)}</p>
+					<div data-dest-current class="px-origin-list" hidden></div>
 				</section>
 
 				<section class="px-section">
@@ -94,7 +95,7 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 
 		<div class="px-map-wrap">
 			<div data-px-map class="px-map" role="application" aria-label="${esc(t.mapLabel)}"></div>
-			<p data-px-hint class="px-hint" hidden>Click the map to set a destination</p>
+			<p data-px-hint class="px-hint" hidden>Click the map to add a starting point</p>
 			<button type="button" data-route-retry class="px-map-retry" hidden>Retry routes</button>
 			<div data-px-empty class="px-map-empty">
 				<div class="px-empty-guide" aria-label="${esc(t.howTo)}">

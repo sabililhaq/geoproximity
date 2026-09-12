@@ -278,3 +278,118 @@ export async function withNetworkDistance<T extends Coord>(
 
   return [...ready, ...fetched].sort((a, b) => a.km - b.km);
 }
+
+function matrixCoordKey(originId: string, destId: string): string {
+  return `${originId}|${destId}`;
+}
+
+/**
+ * Many-to-many OSRM table: every origin to every destination.
+ * Results are keyed `${origin.id}|${dest.id}`.
+ */
+export async function withNetworkMatrix<
+  O extends Coord & { id: string },
+  C extends Coord & { id: string },
+>(
+  origins: O[],
+  destinations: C[],
+  mode: 'driving' | 'walking' = 'driving',
+  signal?: AbortSignal,
+): Promise<Map<string, RouteResult>> {
+  const out = new Map<string, RouteResult>();
+  if (origins.length === 0 || destinations.length === 0) return out;
+
+  const missing: Array<{ origin: O; dest: C }> = [];
+  for (const origin of origins) {
+    for (const dest of destinations) {
+      const cached = routeCache.get(routeCacheKey(mode, origin, dest));
+      if (cached) out.set(matrixCoordKey(origin.id, dest.id), cached);
+      else missing.push({ origin, dest });
+    }
+  }
+  if (missing.length === 0) return out;
+
+  const table = await fetchManyToManyTable(origins, destinations, mode, signal);
+  if (table) {
+    for (const origin of origins) {
+      for (const dest of destinations) {
+        const key = matrixCoordKey(origin.id, dest.id);
+        const result = table.get(key);
+        if (!result) continue;
+        out.set(key, result);
+        const cacheKey = routeCacheKey(mode, origin, dest);
+        if (!routeCache.has(cacheKey)) routeCache.set(cacheKey, result);
+      }
+    }
+    return out;
+  }
+
+  await Promise.all(
+    missing.map(async ({ origin, dest }) => {
+      const result = await getNetworkDistance(origin, dest, mode, signal);
+      out.set(matrixCoordKey(origin.id, dest.id), result);
+    }),
+  );
+  return out;
+}
+
+async function fetchManyToManyTable<
+  O extends Coord & { id: string },
+  C extends Coord & { id: string },
+>(
+  origins: O[],
+  destinations: C[],
+  mode: 'driving' | 'walking',
+  signal?: AbortSignal,
+): Promise<Map<string, RouteResult> | null> {
+  const coords = [...origins, ...destinations].map((c) => `${c.lon},${c.lat}`).join(';');
+  const sources = origins.map((_, i) => i).join(';');
+  const destIndex = destinations.map((_, i) => i + origins.length).join(';');
+  const url = `https://router.project-osrm.org/table/v1/${mode}/${coords}?annotations=duration,distance&sources=${sources}&destinations=${destIndex}`;
+
+  try {
+    const response = await fetch(url, { signal });
+    if (!response.ok) {
+      console.warn(`OSRM table HTTP error: ${response.status}`);
+      return null;
+    }
+    const data = (await response.json()) as {
+      code?: string;
+      durations?: Array<Array<number | null>>;
+      distances?: Array<Array<number | null>>;
+    };
+    if (data.code !== 'Ok' || !Array.isArray(data.durations) || !Array.isArray(data.distances)) {
+      console.warn(`OSRM table error code: ${data.code}`);
+      return null;
+    }
+
+    const out = new Map<string, RouteResult>();
+    for (let i = 0; i < origins.length; i++) {
+      const origin = origins[i]!;
+      for (let j = 0; j < destinations.length; j++) {
+        const dest = destinations[j]!;
+        const metres = data.distances?.[i]?.[j];
+        const durationSec = data.durations?.[i]?.[j];
+        if (typeof metres !== 'number' || !Number.isFinite(metres)) {
+          out.set(matrixCoordKey(origin.id, dest.id), {
+            km: distanceKm(origin, dest),
+            error: 'no_route',
+          });
+          continue;
+        }
+        out.set(matrixCoordKey(origin.id, dest.id), {
+          km: metres / 1000,
+          durationSec:
+            typeof durationSec === 'number' && Number.isFinite(durationSec)
+              ? durationSec
+              : undefined,
+        });
+      }
+    }
+    return out;
+  } catch (error) {
+    if (isAbortError(error) || signal?.aborted) return null;
+    console.warn('Network error reaching OSRM table:', error);
+    return null;
+  }
+}

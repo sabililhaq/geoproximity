@@ -1,13 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { encodeShareHash, readShareHash, readStoredState, writeStoredState } from '../src/share';
 
+const destination = {
+  id: 'destination-id',
+  name: 'Paris',
+  lat: 48.8566,
+  lon: 2.3522,
+};
+
 const state = {
-  destination: {
-    id: 'destination-id',
-    name: 'Paris',
-    lat: 48.8566,
-    lon: 2.3522,
-  },
+  destination,
+  origins: [destination],
   locations: [{ id: 'location-id', name: 'London', lat: 51.5074, lon: -0.1278 }],
   distanceMode: 'straight' as const,
 };
@@ -64,6 +67,29 @@ describe('share hash', () => {
       }),
     )}`;
     expect(compact.length).toBeLessThan(json.length);
+  });
+
+  it('round-trips several people with px2 hashes and keeps old px hashes', () => {
+    const group = {
+      destination: state.destination,
+      origins: [state.destination, { id: 'lyon-id', name: 'Lyon', lat: 45.764, lon: 4.8357 }],
+      locations: state.locations,
+      distanceMode: 'straight' as const,
+    };
+    const compact = encodeShareHash(group);
+    expect(compact.startsWith('px2=')).toBe(true);
+    expect(readShareHash(`#${compact}`)).toEqual({
+      destination: { name: 'Paris', lat: 48.8566, lon: 2.3522 },
+      origins: [
+        { name: 'Paris', lat: 48.8566, lon: 2.3522 },
+        { name: 'Lyon', lat: 45.764, lon: 4.8357 },
+      ],
+      locations: [{ name: 'London', lat: 51.5074, lon: -0.1278 }],
+      distanceMode: 'straight',
+    });
+
+    const solo = encodeShareHash(state);
+    expect(solo.startsWith('px=')).toBe(true);
   });
 
   it('ignores a legacy unit field in shared links', () => {

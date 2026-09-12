@@ -163,6 +163,58 @@ describe('location list keyboard navigation', () => {
   });
 });
 
+describe('group ranking', () => {
+  it('ranks places by the farthest person and shows each trip', () => {
+    const { root, stop } = mountWithHash({
+      origins: [
+        { name: 'North', lat: -6.88, lon: 107.61 },
+        { name: 'West', lat: -6.9206, lon: 107.55 },
+      ],
+      locations: [
+        { name: 'Cafe N', lat: -6.882, lon: 107.611 },
+        { name: 'Cafe M', lat: -6.9, lon: 107.58 },
+      ],
+    });
+    cleanups.push(stop);
+
+    expect(rows(root).map((row) => row.querySelector('.px-row-name')!.textContent)).toEqual([
+      'Cafe M',
+      'Cafe N',
+    ]);
+    expect(rows(root)[0]!.classList.contains('is-selected')).toBe(false);
+    expect(rows(root)[0]!.querySelector('.px-peer-list')).toBeNull();
+    expect(root.querySelector('[data-dest-current]')?.textContent).toContain('North');
+    expect(root.querySelector('[data-dest-current]')?.textContent).toContain('West');
+    expect(rows(root)[0]!.querySelector('.px-row-dist')?.textContent).toMatch(/farthest/);
+
+    rows(root)[0]!.click();
+    expect(rows(root)[0]!.classList.contains('is-selected')).toBe(true);
+    expect(rows(root)[0]!.querySelectorAll('.px-peer-list li').length).toBe(2);
+  });
+
+  it('tells the user when several places are ranked for several people', () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+    const handle = mountProximity(root, {});
+    cleanups.push(handle);
+
+    handle.setState({
+      origins: [
+        { name: 'North', lat: -6.88, lon: 107.61 },
+        { name: 'West', lat: -6.9206, lon: 107.55 },
+      ],
+      locations: [
+        { name: 'Cafe N', lat: -6.882, lon: 107.611 },
+        { name: 'Cafe M', lat: -6.9, lon: 107.58 },
+      ],
+    });
+
+    expect(root.querySelector('[data-io-status]')?.textContent?.toLowerCase()).toContain(
+      'multi-peer mode, calculating distances',
+    );
+  });
+});
+
 describe('programmatic API', () => {
   it('reads and writes state and notifies onChange', () => {
     const root = document.createElement('div');

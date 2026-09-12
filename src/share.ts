@@ -10,6 +10,7 @@ function asDistanceMode(value: unknown): DistanceMode | undefined {
 
 export type SharedComparison = {
   destination: ProximityNode | null;
+  origins?: ProximityNode[];
   locations: ProximityNode[];
   /** Absent in links created before distance modes were shared. */
   distanceMode?: DistanceMode;
@@ -47,11 +48,20 @@ const MODE_SHORT: Record<DistanceMode, string> = {
   walking: 'w',
 };
 
+function stateOrigins(state: ProximityState): Array<{ name: string; lat: number; lon: number }> {
+  if (state.origins && state.origins.length > 1) return state.origins;
+  return state.destination ? [state.destination] : [];
+}
+
 export function encodeShareHash(state: ProximityState): string {
-  const dest = state.destination ? encodeNode(state.destination) : '';
+  const origins = stateOrigins(state);
   const locs = state.locations.map(encodeNode).join(';');
   const mode = MODE_SHORT[state.distanceMode];
-  return `px=${dest}|${locs}|${mode}`;
+  if (origins.length <= 1) {
+    const dest = origins[0] ? encodeNode(origins[0]) : '';
+    return `px=${dest}|${locs}|${mode}`;
+  }
+  return `px2=${origins.map(encodeNode).join(';')}|${locs}|${mode}`;
 }
 
 function readCompactHash(hash: string): SharedComparison | null {
@@ -79,9 +89,50 @@ function readCompactHash(hash: string): SharedComparison | null {
         : modeToken === ''
           ? 'straight'
           : asDistanceMode(modeToken);
-  return distanceMode && distanceMode !== 'straight'
-    ? { destination, locations, distanceMode }
-    : { destination, locations, distanceMode: distanceMode ?? 'straight' };
+  return {
+    destination,
+    locations,
+    distanceMode: distanceMode ?? 'straight',
+  };
+}
+
+function readMultiHash(hash: string): SharedComparison | null {
+  const body = hash.slice('#px2='.length);
+  const parts = body.split('|');
+  if (parts.length < 2) return null;
+  const originToken = parts[0] ?? '';
+  const locToken = parts[1] ?? '';
+  const modeToken = parts[2] ?? '';
+  const origins: ProximityNode[] = [];
+  if (originToken) {
+    for (const token of originToken.split(';')) {
+      const node = parseCompactNode(token);
+      if (!node) return null;
+      origins.push(node);
+    }
+  }
+  const locations: ProximityNode[] = [];
+  if (locToken) {
+    for (const token of locToken.split(';')) {
+      const node = parseCompactNode(token);
+      if (!node) return null;
+      locations.push(node);
+    }
+  }
+  const distanceMode =
+    modeToken === 'd'
+      ? 'driving'
+      : modeToken === 'w'
+        ? 'walking'
+        : modeToken === ''
+          ? 'straight'
+          : asDistanceMode(modeToken);
+  return {
+    destination: origins[0] ?? null,
+    origins,
+    locations,
+    distanceMode: distanceMode ?? 'straight',
+  };
 }
 
 function readLegacyHash(hash: string): SharedComparison | null {
@@ -103,6 +154,7 @@ function readLegacyHash(hash: string): SharedComparison | null {
 }
 
 export function readShareHash(hash: string): SharedComparison | null {
+  if (hash.startsWith('#px2=')) return readMultiHash(hash);
   if (hash.startsWith('#px=')) return readCompactHash(hash);
   if (hash.startsWith('#proximity=')) return readLegacyHash(hash);
   return null;

@@ -8,7 +8,10 @@ export type Place = {
 };
 
 export type ProximityState = {
+  /** First origin; kept so existing getState/setState callers keep working. */
   destination: Place | null;
+  /** Starting points (people). Empty means no ranking yet. */
+  origins: Place[];
   locations: Place[];
   distanceMode: DistanceMode;
 };

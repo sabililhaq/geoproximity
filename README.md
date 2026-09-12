@@ -4,7 +4,7 @@
 
 [Live demo](https://sabililhaq.com/map)
 
-Geoproximity helps you compare locations geographically. Choose a destination, add multiple candidate locations, and see them visualized and ranked by distance.
+Geoproximity helps you compare locations geographically. Add where people are starting from, add the candidate places, and see them visualized and ranked together.
 
 It is designed for problems where **comparing many locations at once** is more useful than checking distances one by one.
 
@@ -21,9 +21,11 @@ Instead of checking each hub individually in Google Maps, add them all to Geopro
 
 ### Finding a meeting point
 
-The current model is **one destination and N locations**, ranked to that destination. It does not yet rank several candidate venues by total or maximum travel from several people.
+Add everyone under **Where we are**, then the candidate venues under **Places to compare**.
 
-A useful workaround: set one candidate as the destination and add everyone else as locations, then repeat for the next candidate. That shows who is farthest from that spot. Ranking many candidates against many origins is a different calculation and is not built in yet.
+With one person, places are ranked by distance to that person — the travel-hub case.
+
+With several people, places are ranked by the unlucky trip (the farthest person), then by total travel. Select a place to see each person's distance. The ranking is a hint; the map is how you decide.
 
 ### Choosing a restaurant
 
@@ -75,8 +77,8 @@ The goal isn't to replace Google Maps. It's to make **multi-location comparison*
 
 ## How it works
 
-1. **Choose a destination** — search, click on the map, or use your current location.
-2. **Add locations** — enter the places you want to compare.
+1. **Add where people are** — one person, or several. Search, click on the map, or use your current location.
+2. **Add places to compare** — the options you want to rank.
 3. **Visualize** — locations are plotted and connected to the destination.
 4. **Rank** — candidates are sorted by proximity.
 

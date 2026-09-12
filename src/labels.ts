@@ -21,11 +21,14 @@ export type UiLabels = {
   locPlaceholder: string;
   useMyLocation: string;
   locEmpty: string;
+  originEmpty: string;
   startHere: string;
   step1: string;
   step2: string;
   step3: string;
   emptyHelp: string;
+  farthest: string;
+  total: string;
   sample: string;
   sampleButton: string;
   share: string;
@@ -53,17 +56,20 @@ export const defaultLabels: UiLabels = {
   maplessHelp: 'Hide the map and show the ranked comparison list.',
   showScale: 'Show scale ruler',
   showScaleHelp: 'Show the map distance scale.',
-  destination: 'Destination',
+  destination: 'Where we are',
   locations: 'Places to compare',
   destPlaceholder: 'Search, coordinates, or Maps link',
   locPlaceholder: 'Search, coordinates, or Maps link',
   useMyLocation: 'Use my location',
   locEmpty: 'Search a place, paste coordinates, or click the map to add a comparison location.',
+  originEmpty: 'Add one person for a solo comparison, or several to see which place is fair.',
   startHere: 'Start here',
-  step1: 'Set a destination',
-  step2: 'Add locations to compare',
+  step1: 'Add where people are starting from',
+  step2: 'Add places to compare',
   step3: 'Pick a route mode',
   emptyHelp: 'Search for a place, enter coordinates, or click the map to begin.',
+  farthest: 'farthest',
+  total: 'total',
   sample: 'Load sample data',
   sampleButton: 'Sample',
   share: 'Share this comparison',

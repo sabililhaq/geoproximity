@@ -6,6 +6,7 @@ export type ProximityNode = {
 
 export type ProximityFile = {
   destination: ProximityNode | null;
+  origins?: ProximityNode[];
   locations: ProximityNode[];
 };
 
@@ -82,12 +83,27 @@ function fromNodes(nodes: unknown[]): ProximityFile | null {
   return { destination: destination ?? null, locations: uniqueNodes(rest) };
 }
 
+function fileOrigins(data: ProximityFile): ProximityNode[] {
+  if (data.origins && data.origins.length > 0) return uniqueNodes(data.origins);
+  return data.destination ? [data.destination] : [];
+}
+
 export function serializeProximity(data: ProximityFile): string {
+  const origins = fileOrigins(data);
   return `${JSON.stringify(
     {
-      destination: data.destination
-        ? { name: data.destination.name, lat: data.destination.lat, lon: data.destination.lon }
+      destination: origins[0]
+        ? { name: origins[0].name, lat: origins[0].lat, lon: origins[0].lon }
         : null,
+      ...(origins.length > 1
+        ? {
+            origins: origins.map((node) => ({
+              name: node.name,
+              lat: node.lat,
+              lon: node.lon,
+            })),
+          }
+        : {}),
       locations: data.locations.map((node) => ({
         name: node.name,
         lat: node.lat,
@@ -128,6 +144,19 @@ export function parseProximityJson(text: string): ParseResult {
     return { ok: false, error: 'Destination needs a lat and lon.' };
   }
 
+  if (raw.origins != null && !Array.isArray(raw.origins)) {
+    return { ok: false, error: 'origins must be a list of nodes.' };
+  }
+
+  const origins: ProximityNode[] = [];
+  if (Array.isArray(raw.origins)) {
+    for (const item of raw.origins) {
+      const node = parseNode(item);
+      if (!node) return { ok: false, error: 'Each origin needs a lat and lon.' };
+      origins.push(node);
+    }
+  }
+
   if (raw.locations != null && !Array.isArray(raw.locations)) {
     return { ok: false, error: 'locations must be a list of nodes.' };
   }
@@ -140,18 +169,22 @@ export function parseProximityJson(text: string): ParseResult {
     locations.push(node);
   }
 
+  const originList = uniqueNodes(origins.length > 0 ? origins : destination ? [destination] : []);
+  const originSet = originList;
+
   return {
     ok: true,
     data: {
-      destination,
+      destination: originList[0] ?? null,
+      origins: originList.length > 1 ? originList : undefined,
       locations: uniqueNodes(
-        destination
-          ? locations.filter(
-              (node) =>
-                Math.abs(node.lat - destination.lat) >= 1e-4 ||
-                Math.abs(node.lon - destination.lon) >= 1e-4,
-            )
-          : locations,
+        locations.filter(
+          (node) =>
+            !originSet.some(
+              (origin) =>
+                Math.abs(node.lat - origin.lat) < 1e-4 && Math.abs(node.lon - origin.lon) < 1e-4,
+            ),
+        ),
       ),
     },
   };

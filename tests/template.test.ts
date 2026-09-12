@@ -12,6 +12,8 @@ describe('proximity markup', () => {
       'data-clear',
       'data-sample',
       'data-loc-empty',
+      'data-origin-empty',
+      'data-origin-count',
       'data-route-mode="straight"',
       'data-route-mode="driving"',
       'data-route-mode="walking"',

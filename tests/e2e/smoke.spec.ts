@@ -65,22 +65,17 @@ test('expands the mobile map and returns to the comparison', async ({ page }) =>
   await expect(page.locator('[data-view-toggle]')).toBeHidden();
 });
 
-test('changes a destination without discarding it on cancel', async ({ page }) => {
+test('adds another person without dropping the first starting point', async ({ page }) => {
   await page.goto('/');
-  const card = page.locator('[data-dest-current]');
+  const people = page.locator('[data-dest-current]');
   const input = page.locator('[data-dest-input]');
   const count = await page.getByRole('option').count();
-  await expect(input).toBeHidden();
-  await card.getByRole('button', { name: 'Change' }).click();
-  await expect(input).toBeFocused();
-  await card.getByRole('button', { name: 'Cancel' }).click();
-  await expect(card).toContainText('Jalan Braga');
-  await expect(input).toBeHidden();
-  await card.getByRole('button', { name: 'Change' }).click();
+  await expect(input).toBeVisible();
+  await expect(people).toContainText('Jalan Braga');
   await input.fill('48.8566, 2.3522');
   await input.press('Enter');
-  await expect(card).toContainText('48.8566');
-  await expect(input).toBeHidden();
+  await expect(people).toContainText('Jalan Braga');
+  await expect(people).toContainText('48.8566');
   await expect(page.getByRole('option')).toHaveCount(count);
 });
 

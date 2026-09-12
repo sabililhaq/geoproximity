@@ -6,9 +6,7 @@ import {
   clearRouteCache,
   getNetworkDistance,
   samePlace,
-  withDistance,
-  withNetworkDistance,
-  type RouteError,
+  withNetworkMatrix,
 } from './geo';
 import { reverseGeocode } from './geocoder';
 import { parseProximityJson, type ProximityFile } from './io';
@@ -18,14 +16,11 @@ import { bindSearch } from './search';
 import { encodeShareHash, readShareHash, readStoredState, writeStoredState } from './share';
 import sampleProximity from './sample-proximity.json';
 import { cartoTileUrl, resolveCartoApiKey } from './basemap';
+import { rankCandidates, type PeerLeg, type RankedCandidate } from './rank';
 import type { Place, ProximityState, DistanceMode } from './types';
 
-type RankedPlace = Place & {
-  km: number;
-  durationSec?: number;
+type RankedPlace = RankedCandidate<Place> & {
   geometry?: Array<[number, number]>;
-  /** Routing failed for this place; `km` is a straight-line fallback. */
-  error?: RouteError;
 };
 
 let instanceCount = 0;
@@ -100,6 +95,8 @@ export function startProximity(
   const destResults = qs(root, '[data-dest-results]');
   const destTools = qs(root, '[data-dest-tools]');
   const destCurrent = qs(root, '[data-dest-current]');
+  const originEmpty = qs(root, '[data-origin-empty]');
+  const originCount = qs(root, '[data-origin-count]');
   const locForm = qs<HTMLFormElement>(root, '[data-loc-form]');
   const locInput = qs<HTMLInputElement>(root, '[data-loc-input]');
   const locResults = qs(root, '[data-loc-results]');
@@ -140,9 +137,14 @@ export function startProximity(
   /** Driving/walking default to time; straight-line always ranks by distance. */
   const state: ProximityState = {
     destination: null,
+    origins: [],
     locations: [],
     distanceMode: 'straight',
   };
+
+  function syncDestination() {
+    state.destination = state.origins[0] ?? null;
+  }
   scopeIds(root);
   shareBtn.hidden = !options.share;
 
@@ -161,7 +163,6 @@ export function startProximity(
     },
     { signal: session.signal },
   );
-  let editingDestination = false;
   const map = L.map(mapEl, { worldCopyJump: true }).setView([20, 0], 2);
   L.control.scale({ maxWidth: 120 }).addTo(map);
   const cartoApiKey = resolveCartoApiKey(options.cartoApiKey);
@@ -335,6 +336,7 @@ export function startProximity(
         const snap = snapshotState();
         if (selectedLocationId === removedId) selectedLocationId = null;
         state.locations = state.locations.filter((item) => item.id !== removedId);
+        syncDestination();
         keyboardFocusedRowId = neighbour?.id ?? null;
         render();
         focusRow(keyboardFocusedRowId);
@@ -343,60 +345,71 @@ export function startProximity(
     });
   }
 
-  function sortRanked(places: RankedPlace[]): RankedPlace[] {
-    const byTime = state.distanceMode !== 'straight';
-    return [...places].sort((a, b) => {
-      if (byTime) {
-        const at =
-          typeof a.durationSec === 'number' && Number.isFinite(a.durationSec)
-            ? a.durationSec
-            : Infinity;
-        const bt =
-          typeof b.durationSec === 'number' && Number.isFinite(b.durationSec)
-            ? b.durationSec
-            : Infinity;
-        if (at !== bt) return at - bt;
-      }
-      const ak = Number.isFinite(a.km) ? a.km : Infinity;
-      const bk = Number.isFinite(b.km) ? b.km : Infinity;
-      return ak - bk;
-    });
+  function byTime(): boolean {
+    return state.distanceMode !== 'straight';
+  }
+
+  function isGroup(): boolean {
+    return state.origins.length > 1;
+  }
+
+  function calculatingGroup(): boolean {
+    return isGroup() && state.locations.length > 1;
+  }
+
+  function calculatingHint(): string {
+    return 'Multi-peer mode, calculating distances';
   }
 
   function placeMetricLabel(place: RankedPlace): string {
     if (!Number.isFinite(place.km)) return '';
     const dist = `${place.error ? '≈ ' : ''}${formatDistance(place.km)}`;
-    if (
-      state.distanceMode !== 'straight' &&
-      typeof place.durationSec === 'number' &&
-      Number.isFinite(place.durationSec)
-    ) {
-      return `${formatDuration(place.durationSec)} · ${dist}`;
+    const time =
+      byTime() && typeof place.durationSec === 'number' && Number.isFinite(place.durationSec)
+        ? formatDuration(place.durationSec)
+        : '';
+    if (isGroup()) {
+      const farthest = time ? `${time} · ${dist}` : dist;
+      const total =
+        byTime() &&
+        typeof place.totalDurationSec === 'number' &&
+        Number.isFinite(place.totalDurationSec)
+          ? `${formatDuration(place.totalDurationSec)} total`
+          : Number.isFinite(place.totalKm)
+            ? `${formatDistance(place.totalKm)} total`
+            : '';
+      return total ? `${farthest} farthest · ${total}` : `${farthest} farthest`;
     }
+    if (time) return `${time} · ${dist}`;
     return dist;
   }
 
   function rankedLocations(): RankedPlace[] {
-    if (!state.destination) {
-      return state.locations.map((place) => ({ ...place, km: Number.NaN }));
-    }
-    return sortRanked(withDistance(state.locations, state.destination));
+    return rankCandidates(state.locations, state.origins);
   }
 
   async function rankedLocationsAsync(signal: AbortSignal): Promise<RankedPlace[]> {
-    if (!state.destination) {
-      return state.locations.map((place) => ({ ...place, km: Number.NaN }));
-    }
-    if (state.distanceMode === 'straight') {
+    if (state.distanceMode === 'straight' || state.origins.length === 0) {
       return rankedLocations();
     }
     const mode = state.distanceMode === 'driving' ? 'driving' : 'walking';
-    return sortRanked(await withNetworkDistance(state.locations, state.destination, mode, signal));
+    const matrix = await withNetworkMatrix(state.origins, state.locations, mode, signal);
+    const legs = new Map<string, PeerLeg>();
+    for (const [key, result] of matrix) {
+      const originId = key.slice(0, key.indexOf('|'));
+      legs.set(key, {
+        originId,
+        km: result.km,
+        durationSec: result.durationSec,
+        error: result.error,
+      });
+    }
+    return rankCandidates(state.locations, state.origins, legs, true);
   }
 
   function fit(force = true) {
     const points: L.LatLngExpression[] = [];
-    if (state.destination) points.push([state.destination.lat, state.destination.lon]);
+    for (const origin of state.origins) points.push([origin.lat, origin.lon]);
     for (const place of state.locations) points.push([place.lat, place.lon]);
     if (points.length === 0) {
       if (force) map.setView([20, 0], 2);
@@ -467,14 +480,14 @@ export function startProximity(
         routeAnimationToggle,
         false,
         routeAnimationHelp,
-        'Flows dashes along routes from locations toward the destination.',
+        'Flows dashes along routes from people toward the selected place.',
       );
       setSwitchUnavailable(
         routeAnimationReverseToggle,
         !animateOn,
         routeAnimationReverseHelp,
         animateOn
-          ? 'Flows dashes from the destination toward locations.'
+          ? 'Flows dashes from the selected place toward people.'
           : 'Turn on Animate routes to reverse direction.',
       );
     }
@@ -485,17 +498,15 @@ export function startProximity(
   function render() {
     if (state.distanceMode !== 'straight') {
       void renderAsync();
-    } else {
-      doRender(rankedLocations());
+      return;
     }
+    doRender(rankedLocations());
+    if (calculatingGroup()) showStatus(calculatingHint());
   }
 
   async function fillRouteGeometries(ranked: RankedPlace[], signal: AbortSignal) {
-    const dest = state.destination;
-    if (!dest || state.distanceMode === 'straight') return;
+    if (state.origins.length === 0 || state.distanceMode === 'straight') return;
     const mode = state.distanceMode === 'driving' ? 'driving' : 'walking';
-    const pending = ranked.filter((place) => !place.geometry && !place.error);
-    if (pending.length === 0) return;
 
     let scheduled = 0;
     const redraw = () => {
@@ -506,12 +517,35 @@ export function startProximity(
       });
     };
 
+    if (!isGroup()) {
+      const dest = state.origins[0];
+      if (!dest) return;
+      const pending = ranked.filter((place) => !place.geometry && !place.error);
+      if (pending.length === 0) return;
+      await Promise.all(
+        pending.map(async (place) => {
+          const route = await getNetworkDistance(place, dest, mode, signal);
+          if (signal.aborted || !route.geometry) return;
+          place.geometry = route.geometry;
+          const peer = place.peers[0];
+          if (peer) peer.geometry = route.geometry;
+          if (route.durationSec != null) place.durationSec = route.durationSec;
+          redraw();
+        }),
+      );
+      return;
+    }
+
+    const selected = ranked.find((place) => place.id === selectedLocationId);
+    if (!selected) return;
     await Promise.all(
-      pending.map(async (place) => {
-        const route = await getNetworkDistance(place, dest, mode, signal);
+      selected.peers.map(async (peer) => {
+        if (peer.geometry || peer.error) return;
+        const origin = state.origins.find((item) => item.id === peer.originId);
+        if (!origin) return;
+        const route = await getNetworkDistance(origin, selected, mode, signal);
         if (signal.aborted || !route.geometry) return;
-        place.geometry = route.geometry;
-        if (route.durationSec != null) place.durationSec = route.durationSec;
+        peer.geometry = route.geometry;
         redraw();
       }),
     );
@@ -529,7 +563,10 @@ export function startProximity(
     }
     host.classList.add('is-routing');
     hint.hidden = false;
-    hint.textContent = `Fetching ${modeLabel(state.distanceMode)} routes…`;
+    hint.textContent = calculatingGroup()
+      ? calculatingHint()
+      : `Fetching ${modeLabel(state.distanceMode)} routes…`;
+    if (calculatingGroup()) showStatus(calculatingHint());
 
     try {
       const ranked = await rankedLocationsAsync(signal);
@@ -618,6 +655,7 @@ export function startProximity(
     currentRanked = ranked;
     const dest = state.destination;
     const color = accentColor();
+    const group = isGroup();
 
     if (selectedLocationId && !ranked.some((place) => place.id === selectedLocationId)) {
       selectedLocationId = null;
@@ -635,7 +673,7 @@ export function startProximity(
     overlay.clearLayers();
     const markers = new Map<string, L.Marker>();
     overlayMarkers = markers;
-    let selectedPolyline: L.Polyline | null = null;
+    const selectedLines: L.Polyline[] = [];
     const hasSelection = Boolean(selectedLocationId);
 
     function focusPlace(place: Place) {
@@ -643,33 +681,38 @@ export function startProximity(
       markers.get(place.id)?.openPopup();
     }
 
-    destForm.hidden = Boolean(dest) && !editingDestination;
-    destTools.hidden = Boolean(dest) && !editingDestination;
+    destForm.hidden = false;
+    destTools.hidden = false;
+    originCount.textContent = state.origins.length > 0 ? ` (${state.origins.length})` : '';
+    originEmpty.hidden = state.origins.length > 0;
+    destCurrent.hidden = state.origins.length === 0;
+    destCurrent.replaceChildren();
 
-    if (dest) {
-      const destMarker = L.marker([dest.lat, dest.lon], {
+    for (const origin of state.origins) {
+      const originMarker = L.marker([origin.lat, origin.lon], {
         icon: destIcon(),
         zIndexOffset: 600,
-        title: dest.name,
+        title: origin.name,
         draggable: true,
       })
-        .bindPopup(popupContent(dest.name))
+        .bindPopup(popupContent(origin.name))
         .on('dragend', (event) => {
           const point = event.target.getLatLng();
-          dest.lat = point.lat;
-          dest.lon = point.lng;
+          origin.lat = point.lat;
+          origin.lon = point.lng;
+          syncDestination();
           clearRouteCache();
           render();
-          showStatus(`Moved ${dest.name}.`);
+          showStatus(`Moved ${origin.name}.`);
         })
         .addTo(overlay);
-      const destEl = destMarker.getElement();
-      if (destEl) {
-        destEl.setAttribute('role', 'img');
-        destEl.setAttribute('aria-label', `Destination, ${dest.name}`);
+      const originEl = originMarker.getElement();
+      if (originEl) {
+        originEl.setAttribute('role', 'img');
+        originEl.setAttribute('aria-label', `Starting point, ${origin.name}`);
       }
       if (labelsPermanent) {
-        destMarker.bindTooltip(popupContent(dest.name), {
+        originMarker.bindTooltip(popupContent(origin.name), {
           direction: 'right',
           offset: [14, 0],
           permanent: true,
@@ -677,41 +720,35 @@ export function startProximity(
           opacity: 0.95,
         });
       }
-      markers.set(dest.id, destMarker);
+      markers.set(origin.id, originMarker);
 
-      destCurrent.hidden = false;
-      destCurrent.classList.add('has-place');
-      destCurrent.replaceChildren();
+      const card = document.createElement('div');
+      card.className = 'px-dest-card has-place';
       const copy = document.createElement('div');
       copy.className = 'px-dest-copy';
       const title = document.createElement('strong');
-      title.textContent = dest.name;
+      title.textContent = origin.name;
       title.title = 'Double-click to rename';
-      title.addEventListener('dblclick', (event) => beginRename(dest, title, event));
+      title.addEventListener('dblclick', (event) => beginRename(origin, title, event));
       const meta = document.createElement('span');
-      meta.textContent = `${dest.lat.toFixed(4)}, ${dest.lon.toFixed(4)}`;
+      meta.textContent = `${origin.lat.toFixed(4)}, ${origin.lon.toFixed(4)}`;
       copy.append(title, meta);
       copy.title = 'Show on map';
-      copy.addEventListener('click', () => focusPlace(dest));
+      copy.addEventListener('click', () => focusPlace(origin));
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'px-dest-remove';
-      remove.textContent = editingDestination ? 'Cancel' : 'Change';
+      remove.setAttribute('aria-label', `Remove ${origin.name}`);
+      remove.textContent = '×';
       remove.addEventListener('click', () => {
-        editingDestination = !editingDestination;
+        const snap = snapshotState();
+        state.origins = state.origins.filter((item) => item.id !== origin.id);
+        syncDestination();
         render();
-        if (editingDestination) {
-          destInput.value = '';
-          destInput.focus();
-        } else {
-          destCurrent.querySelector('button')?.focus();
-        }
+        showUndo(`Removed ${origin.name}.`, snap);
       });
-      destCurrent.append(copy, remove);
-    } else {
-      destCurrent.hidden = true;
-      destCurrent.classList.remove('has-place');
-      destCurrent.replaceChildren();
+      card.append(copy, remove);
+      destCurrent.append(card);
     }
 
     locList.replaceChildren();
@@ -760,14 +797,19 @@ export function startProximity(
         });
       }
       markers.set(place.id, locMarker);
-      if (dest) {
-        const latlngs: L.LatLngExpression[] = place.geometry
-          ? place.geometry.map(([lon, lat]) => [lat, lon])
-          : geodesicLatLngs(place, dest);
-        const dashArray = place.geometry ? undefined : '6 6';
-        const dimmed = hasSelection && !isSelected;
-        const routedClass = place.geometry ? ' px-edge-routed' : '';
-        if (isSelected) {
+      function drawLeg(
+        from: Place,
+        to: Place,
+        geometry: Array<[number, number]> | undefined,
+        selected: boolean,
+      ) {
+        const latlngs: L.LatLngExpression[] = geometry
+          ? geometry.map(([lon, lat]) => [lat, lon])
+          : geodesicLatLngs(from, to);
+        const dashArray = geometry ? undefined : '6 6';
+        const dimmed = hasSelection && !selected;
+        const routedClass = geometry ? ' px-edge-routed' : '';
+        if (selected) {
           L.polyline(latlngs, {
             color,
             weight: 10,
@@ -777,24 +819,35 @@ export function startProximity(
             interactive: false,
           }).addTo(overlay);
         }
-        const line = L.polyline(latlngs, {
+        const line: L.Polyline = L.polyline(latlngs, {
           color,
-          weight: isSelected ? 5 : dimmed ? 2 : 2.5,
-          opacity: isSelected ? 1 : dimmed ? 0.18 : 0.45,
+          weight: selected ? 5 : dimmed ? 2 : 2.5,
+          opacity: selected ? 1 : dimmed ? 0.18 : 0.45,
           dashArray,
-          className: isSelected
+          className: selected
             ? `px-edge${routedClass} px-edge-highlight`
             : dimmed
               ? `px-edge${routedClass} px-edge-dim`
               : `px-edge${routedClass}`,
           interactive: true,
-        })
-          .on('click', (event) => {
-            L.DomEvent.stopPropagation(event);
-            selectLocation(place.id, ranked, { fit: true });
-          })
-          .addTo(overlay);
-        if (isSelected) selectedPolyline = line;
+        });
+        line.on('click', (event) => {
+          L.DomEvent.stopPropagation(event);
+          selectLocation(place.id, ranked, { fit: true });
+        });
+        line.addTo(overlay);
+        if (selected) selectedLines.push(line);
+      }
+
+      if (group) {
+        if (isSelected) {
+          for (const origin of state.origins) {
+            const peer = place.peers.find((leg) => leg.originId === origin.id);
+            drawLeg(origin, place, peer?.geometry, true);
+          }
+        }
+      } else if (dest) {
+        drawLeg(place, dest, place.geometry ?? place.peers[0]?.geometry, isSelected);
       }
 
       const row = document.createElement('li');
@@ -847,7 +900,29 @@ export function startProximity(
       });
       row.dataset.placeId = place.id;
       row.setAttribute('tabindex', '0');
-      row.append(rank, name, dist, remove);
+      const body = document.createElement('div');
+      body.className = 'px-row-body';
+      body.append(name);
+      if (group && isSelected && place.peers.length > 0) {
+        const peers = document.createElement('ul');
+        peers.className = 'px-peer-list';
+        for (const peer of place.peers) {
+          const origin = state.origins.find((item) => item.id === peer.originId);
+          const li = document.createElement('li');
+          if (peer.originId === place.farthestOriginId) li.className = 'is-farthest';
+          const peerDist = Number.isFinite(peer.km)
+            ? `${peer.error ? '≈ ' : ''}${formatDistance(peer.km)}`
+            : '—';
+          const peerTime =
+            byTime() && typeof peer.durationSec === 'number' && Number.isFinite(peer.durationSec)
+              ? `${formatDuration(peer.durationSec)} · `
+              : '';
+          li.textContent = `${origin?.name ?? 'Someone'}: ${peerTime}${peerDist}`;
+          peers.append(li);
+        }
+        body.append(peers);
+      }
+      row.append(rank, body, dist, remove);
       locList.append(row);
       if (isSelected) {
         queueMicrotask(() => {
@@ -862,37 +937,41 @@ export function startProximity(
       }
     }
 
-    if (selectedPolyline) selectedPolyline.bringToFront();
+    for (const line of selectedLines) line.bringToFront();
 
-    if (renderOpts?.fitSelection && selectedLocationId && dest) {
+    if (renderOpts?.fitSelection && selectedLocationId) {
       const selected = ranked.find((place) => place.id === selectedLocationId);
       if (selected) focusRoute(selected, dest, markers);
     }
 
-    const hasNodes = Boolean(dest) || state.locations.length > 0;
+    const hasNodes = state.origins.length > 0 || state.locations.length > 0;
     if (state.distanceMode === 'straight') routeRetry.hidden = true;
     const selected = selectedLocationId
       ? ranked.find((place) => place.id === selectedLocationId)
       : undefined;
     if (isLoadingDistances) {
-      hint.textContent = `Fetching ${modeLabel(state.distanceMode)} routes…`;
+      hint.textContent = calculatingGroup()
+        ? calculatingHint()
+        : `Fetching ${modeLabel(state.distanceMode)} routes…`;
     } else if (selected) {
       const metric = placeMetricLabel(selected);
       const label = metric ? `${selected.name} · ${metric}` : selected.name;
       hint.textContent = `Highlighted: ${label} · click again to clear`;
-    } else if (dest) {
+    } else if (state.origins.length > 0) {
       const approx = ranked.filter((place) => place.error).length;
       const label = modeLabel(state.distanceMode);
       hint.textContent =
         state.distanceMode === 'straight'
-          ? 'Click a location or path to highlight'
+          ? group
+            ? "Select a place to see everyone's trip"
+            : 'Click a location or path to highlight'
           : approx === 0
             ? `Showing ${label} routes · click to highlight`
             : approx === ranked.length
               ? `${label.charAt(0).toUpperCase()}${label.slice(1)} routing unavailable · showing straight-line distances`
               : `Showing ${label} routes · ${approx} of ${ranked.length} fell back to straight-line`;
     } else {
-      hint.textContent = 'Click the map to set a destination';
+      hint.textContent = 'Click the map to add a starting point';
     }
     hint.hidden = !hasNodes;
     empty.hidden = hasNodes;
@@ -909,18 +988,23 @@ export function startProximity(
     if (
       lastRankAnnouncement &&
       orderKey !== lastRankAnnouncement &&
-      dest &&
+      state.origins.length > 0 &&
       ranked.length > 0 &&
       !isLoadingDistances &&
       !undoOpen
     ) {
       const top = ranked[0]!;
       const metric = placeMetricLabel(top);
-      const by = state.distanceMode === 'straight' ? 'distance' : 'time';
+      const by = isGroup()
+        ? 'farthest person'
+        : state.distanceMode === 'straight'
+          ? 'distance'
+          : 'time';
+      const win = isGroup() ? 'fairest' : 'closest';
       showStatus(
         metric
-          ? `Ranked by ${by} · ${top.name} is closest at ${metric}`
-          : `Ranked by ${by} · ${top.name} is closest`,
+          ? `Ranked by ${by} · ${top.name} is ${win} at ${metric}`
+          : `Ranked by ${by} · ${top.name} is ${win}`,
       );
     }
     lastRankAnnouncement = orderKey;
@@ -929,6 +1013,7 @@ export function startProximity(
 
   type StateSnapshot = {
     destination: Place | null;
+    origins: Place[];
     locations: Place[];
     selectedLocationId: string | null;
     keyboardFocusedRowId: string | null;
@@ -938,8 +1023,10 @@ export function startProximity(
   const changeListeners = new Set<(state: ProximityState) => void>();
 
   function cloneState(): ProximityState {
+    const origins = state.origins.map((item) => ({ ...item }));
     return {
-      destination: state.destination ? { ...state.destination } : null,
+      destination: origins[0] ? { ...origins[0] } : null,
+      origins,
       locations: state.locations.map((item) => ({ ...item })),
       distanceMode: state.distanceMode,
     };
@@ -951,8 +1038,10 @@ export function startProximity(
   }
 
   function snapshotState(): StateSnapshot {
+    const origins = state.origins.map((item) => ({ ...item }));
     return {
-      destination: state.destination ? { ...state.destination } : null,
+      destination: origins[0] ? { ...origins[0] } : null,
+      origins,
       locations: state.locations.map((item) => ({ ...item })),
       selectedLocationId,
       keyboardFocusedRowId,
@@ -960,7 +1049,8 @@ export function startProximity(
   }
 
   function restoreSnapshot(snap: StateSnapshot) {
-    state.destination = snap.destination;
+    state.origins = snap.origins.map((item) => ({ ...item }));
+    syncDestination();
     state.locations = snap.locations;
     selectedLocationId = snap.selectedLocationId;
     keyboardFocusedRowId = snap.keyboardFocusedRowId;
@@ -1008,7 +1098,14 @@ export function startProximity(
 
   function applyFile(data: ProximityFile) {
     selectedLocationId = null;
-    state.destination = data.destination ? { id: crypto.randomUUID(), ...data.destination } : null;
+    const originNodes =
+      data.origins && data.origins.length > 0
+        ? data.origins
+        : data.destination
+          ? [data.destination]
+          : [];
+    state.origins = originNodes.map((node) => ({ id: crypto.randomUUID(), ...node }));
+    syncDestination();
     state.locations = data.locations.map((node) => ({
       id: crypto.randomUUID(),
       ...node,
@@ -1017,10 +1114,11 @@ export function startProximity(
     fit(true);
   }
 
-  function setDestination(place: Place) {
-    editingDestination = false;
-    state.destination = place;
+  function addOrigin(place: Place) {
+    if (state.origins.some((item) => samePlace(item, place))) return;
     state.locations = state.locations.filter((item) => !samePlace(item, place));
+    state.origins.push(place);
+    syncDestination();
     render();
     fit();
   }
@@ -1036,7 +1134,9 @@ export function startProximity(
     const commit = () => {
       const next = input.value.trim();
       if (next && next !== place.name) {
-        if (state.destination?.id === place.id) state.destination.name = next;
+        const origin = state.origins.find((item) => item.id === place.id);
+        if (origin) origin.name = next;
+        syncDestination();
         const loc = state.locations.find((item) => item.id === place.id);
         if (loc) loc.name = next;
       }
@@ -1062,7 +1162,7 @@ export function startProximity(
   }
 
   function addLocation(place: Place) {
-    if (state.destination && samePlace(state.destination, place)) return;
+    if (state.origins.some((item) => samePlace(item, place))) return;
     if (state.locations.some((item) => samePlace(item, place))) return;
     state.locations.push(place);
     render();
@@ -1070,13 +1170,13 @@ export function startProximity(
   }
 
   const searchBias = () => {
-    if (state.destination) {
-      return { lat: state.destination.lat, lon: state.destination.lon };
+    if (state.origins[0]) {
+      return { lat: state.origins[0].lat, lon: state.origins[0].lon };
     }
     const center = map.getCenter();
     return { lat: center.lat, lon: center.lng };
   };
-  bindSearch(root, destInput, destResults, destForm, setDestination, session.signal, searchBias);
+  bindSearch(root, destInput, destResults, destForm, addOrigin, session.signal, searchBias);
   bindSearch(
     root,
     locInput,
@@ -1104,7 +1204,7 @@ export function startProximity(
           const lon = pos.coords.longitude;
           const name = await reverseGeocode(lat, lon, session.signal);
           if (session.signal.aborted) return;
-          setDestination({
+          addOrigin({
             id: crypto.randomUUID(),
             name: name || 'My location',
             lat,
@@ -1145,7 +1245,8 @@ export function startProximity(
     }
     applyFile(result.data);
     if (!announce) return;
-    const count = result.data.locations.length + (result.data.destination ? 1 : 0);
+    const originCountLoaded = result.data.origins?.length ?? (result.data.destination ? 1 : 0);
+    const count = result.data.locations.length + originCountLoaded;
     showStatus(`Loaded sample · ${count} nodes.`);
   }
 
@@ -1210,7 +1311,8 @@ export function startProximity(
       const snap = snapshotState();
       selectedLocationId = null;
       keyboardFocusedRowId = null;
-      state.destination = null;
+      state.origins = [];
+      syncDestination();
       state.locations = [];
       render();
       fit(true);
@@ -1286,7 +1388,7 @@ export function startProximity(
   map.on('zoomend', () => {
     const next = map.getZoom() >= LABEL_ZOOM;
     if (next === labelsPermanent) return;
-    if (state.destination || state.locations.length > 0) {
+    if (state.origins.length > 0 || state.locations.length > 0) {
       doRender(currentRanked.length ? currentRanked : rankedLocations());
       if (selectedLocationId) overlayMarkers.get(selectedLocationId)?.openPopup();
     }
@@ -1297,7 +1399,7 @@ export function startProximity(
     void reverseGeocode(lat, lng, session.signal).then((name) => {
       if (session.signal.aborted) return;
       const place: Place = { id: crypto.randomUUID(), name, lat, lon: lng };
-      if (!state.destination) setDestination(place);
+      if (state.origins.length === 0) addOrigin(place);
       else addLocation(place);
     });
   });
@@ -1317,9 +1419,7 @@ export function startProximity(
         !root.contains(target);
       if (outside) return;
       e.preventDefault();
-      // The destination form is hidden once a destination is set, so fall
-      // through to the locations input in that case.
-      const input = destForm.hidden || document.activeElement === destInput ? locInput : destInput;
+      const input = document.activeElement === destInput ? locInput : destInput;
       input.focus();
       input.select();
     },
@@ -1334,7 +1434,8 @@ export function startProximity(
         const snap = snapshotState();
         selectedLocationId = null;
         keyboardFocusedRowId = null;
-        state.destination = null;
+        state.origins = [];
+        syncDestination();
         state.locations = [];
         render();
         fit(true);
@@ -1346,18 +1447,20 @@ export function startProximity(
 
   const shareHash = window.location.hash;
   const shared = options.share ? readShareHash(shareHash) : null;
-  const invalidShared = options.share && /^#(?:px|proximity)=/.test(shareHash) && shared === null;
+  const invalidShared =
+    options.share && /^#(?:px2|px|proximity)=/.test(shareHash) && shared === null;
   const stored = shared ? null : readStoredState();
   if (shared) {
     if (shared.distanceMode) state.distanceMode = shared.distanceMode;
     applyFile(shared);
-    const count = shared.locations.length + (shared.destination ? 1 : 0);
+    const count =
+      shared.locations.length + (shared.origins?.length ?? (shared.destination ? 1 : 0));
     showStatus(`Loaded from shared link · ${count} nodes.`);
   } else if (stored) {
     if (stored.distanceMode) state.distanceMode = stored.distanceMode;
     applyFile(stored);
     showStatus('Restored your previous comparison.');
-  } else if (options.sample && !state.destination && state.locations.length === 0) {
+  } else if (options.sample && state.origins.length === 0 && state.locations.length === 0) {
     loadSample(false);
   } else {
     render();
@@ -1366,15 +1469,26 @@ export function startProximity(
   window.setTimeout(() => map.invalidateSize(), 0);
 
   function setState(next: Partial<ProximityState> | ProximityFile) {
-    if ('destination' in next && next.destination !== undefined) {
-      state.destination = next.destination
-        ? {
-            id: crypto.randomUUID(),
-            name: next.destination.name,
-            lat: next.destination.lat,
-            lon: next.destination.lon,
-          }
-        : null;
+    if ('origins' in next && next.origins) {
+      state.origins = next.origins.map((node) => ({
+        id: crypto.randomUUID(),
+        name: node.name,
+        lat: node.lat,
+        lon: node.lon,
+      }));
+      syncDestination();
+    } else if ('destination' in next && next.destination !== undefined) {
+      state.origins = next.destination
+        ? [
+            {
+              id: crypto.randomUUID(),
+              name: next.destination.name,
+              lat: next.destination.lat,
+              lon: next.destination.lon,
+            },
+          ]
+        : [];
+      syncDestination();
     }
     if ('locations' in next && next.locations) {
       state.locations = next.locations.map((node) => ({
