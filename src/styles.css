@@ -640,6 +640,19 @@ summary:focus-visible,
   color: var(--px-muted);
   font-size: 0.75rem;
   line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.px-row.px-row-group {
+  grid-template-columns: 1.4rem minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.px-row-group .px-row-dist {
+  display: block;
+  margin-top: 0.2rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .px-peer-list .is-farthest {
@@ -697,6 +710,7 @@ summary:focus-visible,
 }
 
 .px-row-name {
+  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -860,7 +874,11 @@ summary:focus-visible,
   color: var(--px-muted);
   font-size: 0.75rem;
   pointer-events: none;
-  white-space: nowrap;
+  width: max-content;
+  max-width: calc(100% - 2rem);
+  box-sizing: border-box;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .px-map-retry {

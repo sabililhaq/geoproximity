@@ -166,3 +166,38 @@ test('keeps a low input above a keyboard that opens after focus', async ({ page 
   await input.press('Enter');
   await expect(page.locator('[data-loc-list]')).toContainText('48.8566');
 });
+
+for (const width of [320, 390, 844, 1280]) {
+  test(`multi-peer details fit the sidebar at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/');
+    const input = page.locator('[data-dest-input]');
+    for (const coordinates of ['-6.88, 107.61', '-6.92, 107.55']) {
+      await input.fill(coordinates);
+      await input.press('Enter');
+    }
+    const row = page.getByRole('option').first();
+    await row.click();
+    await expect(row.locator('.px-peer-list li')).toHaveCount(3);
+    const layout = await row.evaluate((element) => {
+      const sidebar = element.closest('.px-sidebar-body')!;
+      const body = element.querySelector('.px-row-body')!.getBoundingClientRect();
+      const metric = element.querySelector('.px-row-dist')!.getBoundingClientRect();
+      const peers = element.querySelector('.px-peer-list')!.getBoundingClientRect();
+      return {
+        overflow: sidebar.scrollWidth > sidebar.clientWidth,
+        detailsWidth: body.width,
+        separated: metric.bottom <= peers.top,
+        metricFits: metric.left >= body.left && metric.right <= body.right,
+      };
+    });
+    expect(layout.overflow).toBe(false);
+    expect(layout.detailsWidth).toBeGreaterThan(180);
+    expect(layout.separated).toBe(true);
+    expect(layout.metricFits).toBe(true);
+    const hint = await page.locator('.px-hint').boundingBox();
+    const map = await page.locator('.px-map-wrap').boundingBox();
+    expect(hint!.x).toBeGreaterThanOrEqual(map!.x);
+    expect(hint!.x + hint!.width).toBeLessThanOrEqual(map!.x + map!.width);
+  });
+}

@@ -852,6 +852,7 @@ export function startProximity(
 
       const row = document.createElement('li');
       row.className = isSelected ? 'px-row is-selected' : 'px-row';
+      row.classList.toggle('px-row-group', group);
       row.title = isSelected ? 'Click again to clear highlight' : 'Highlight route on map';
       row.setAttribute('role', 'option');
       row.setAttribute('aria-selected', isSelected ? 'true' : 'false');
@@ -903,6 +904,7 @@ export function startProximity(
       const body = document.createElement('div');
       body.className = 'px-row-body';
       body.append(name);
+      if (group) body.append(dist);
       if (group && isSelected && place.peers.length > 0) {
         const peers = document.createElement('ul');
         peers.className = 'px-peer-list';
@@ -922,7 +924,8 @@ export function startProximity(
         }
         body.append(peers);
       }
-      row.append(rank, body, dist, remove);
+      if (group) row.append(rank, body, remove);
+      else row.append(rank, body, dist, remove);
       locList.append(row);
       if (isSelected) {
         queueMicrotask(() => {
