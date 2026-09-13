@@ -786,11 +786,27 @@ summary:focus-visible,
 }
 
 .px-seg button {
+  color: var(--px-ink);
   border: 0;
   border-radius: 999px;
   padding: 0.28rem 0.7rem;
   background: transparent;
   flex: 1 1 0;
+}
+
+.px-row.is-selected .px-row-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+[data-proximity] .leaflet-popup-content-wrapper,
+[data-proximity] .leaflet-popup-tip {
+  background: var(--px-fill);
+  color: var(--px-ink);
+}
+
+[data-proximity] .leaflet-popup-content {
+  overflow-wrap: anywhere;
 }
 
 .px-seg button[aria-pressed='true'] {

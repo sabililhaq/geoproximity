@@ -201,3 +201,42 @@ for (const width of [320, 390, 844, 1280]) {
     expect(hint!.x + hint!.width).toBeLessThanOrEqual(map!.x + map!.width);
   });
 }
+
+for (const width of [320, 390]) {
+  test(`mobile selection stays readable in dark mode at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/');
+    const input = page.locator('[data-dest-input]');
+    await input.fill('-6.88, 107.61');
+    await input.press('Enter');
+    await page.getByRole('option').first().click();
+    await expect(page.locator('.px-hint')).toHaveText('Tap the selected place again to clear');
+    const popup = page.locator('.leaflet-popup-content');
+    await expect(popup).toBeVisible();
+    await expect(popup).not.toContainText('total');
+    await expect
+      .poll(async () => {
+        const box = (await popup.boundingBox())!;
+        const map = (await page.locator('.px-map-wrap').boundingBox())!;
+        return (
+          box.x >= map.x &&
+          box.x + box.width <= map.x + map.width &&
+          box.y >= map.y + 72 &&
+          box.y + box.height <= map.y + map.height
+        );
+      })
+      .toBe(true);
+    const colors = await page
+      .getByRole('button', { name: 'Driving', exact: true })
+      .evaluate((button) => {
+        const ink = document.createElement('span');
+        ink.style.color = 'var(--px-ink)';
+        button.append(ink);
+        const expected = getComputedStyle(ink).color;
+        ink.remove();
+        return { actual: getComputedStyle(button).color, expected };
+      });
+    expect(colors.actual).toBe(colors.expected);
+  });
+}

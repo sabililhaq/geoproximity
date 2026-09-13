@@ -764,7 +764,19 @@ export function startProximity(
         title: place.name,
         draggable: true,
       })
-        .bindPopup(popupContent(kmLabel ? `${place.name} · ${kmLabel}` : place.name))
+        .bindPopup(
+          popupContent(
+            Number.isFinite(place.km)
+              ? `${place.name} · ${place.error ? '≈ ' : ''}${formatDistance(place.km)}${group ? ' farthest' : ''}`
+              : place.name,
+          ),
+          {
+            maxWidth: 220,
+            keepInView: true,
+            autoPanPaddingTopLeft: L.point(48, 72),
+            autoPanPaddingBottomRight: L.point(12, 60),
+          },
+        )
         .on('click', () => {
           selectLocation(place.id, ranked, { fit: true });
         })
@@ -957,9 +969,7 @@ export function startProximity(
         ? calculatingHint()
         : `Fetching ${modeLabel(state.distanceMode)} routes…`;
     } else if (selected) {
-      const metric = placeMetricLabel(selected);
-      const label = metric ? `${selected.name} · ${metric}` : selected.name;
-      hint.textContent = `Highlighted: ${label} · click again to clear`;
+      hint.textContent = 'Tap the selected place again to clear';
     } else if (state.origins.length > 0) {
       const approx = ranked.filter((place) => place.error).length;
       const label = modeLabel(state.distanceMode);
