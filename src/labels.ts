@@ -1,4 +1,8 @@
 export type UiLabels = {
+  person: string;
+  people: string;
+  editPeople: string;
+  donePeople: string;
   expandMap: string;
   showPlaces: string;
   distanceMethod: string;
@@ -40,6 +44,10 @@ export type UiLabels = {
 };
 
 export const defaultLabels: UiLabels = {
+  person: 'person',
+  people: 'people',
+  editPeople: 'Edit',
+  donePeople: 'Done',
   expandMap: 'Expand map',
   showPlaces: 'Show places',
   distanceMethod: 'Distance method',

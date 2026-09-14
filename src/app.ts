@@ -41,6 +41,10 @@ function scopeIds(root: HTMLElement): void {
     const target = renamed.get(el.getAttribute('for') ?? '');
     if (target) el.setAttribute('for', target);
   }
+  for (const el of root.querySelectorAll<HTMLElement>('[aria-controls]')) {
+    const target = renamed.get(el.getAttribute('aria-controls') ?? '');
+    if (target) el.setAttribute('aria-controls', target);
+  }
   for (const el of root.querySelectorAll<HTMLElement>('[aria-describedby]')) {
     const ids = (el.getAttribute('aria-describedby') ?? '')
       .split(/\s+/)
@@ -149,6 +153,33 @@ export function startProximity(
   shareBtn.hidden = !options.share;
 
   const session = new AbortController();
+  const peopleSection = qs(root, '.px-people');
+  const peopleToggle = qs<HTMLButtonElement>(root, '[data-people-toggle]');
+  let peopleCollapsed = false;
+  function syncPeople() {
+    if (state.origins.length === 0) peopleCollapsed = false;
+    peopleToggle.hidden = state.origins.length === 0;
+    peopleSection.classList.toggle('is-collapsed', peopleCollapsed);
+    peopleToggle.setAttribute('aria-expanded', String(!peopleCollapsed));
+    qs(root, '[data-people-summary]').textContent =
+      `${state.origins.length} ${state.origins.length === 1 ? peopleToggle.dataset.person : peopleToggle.dataset.people}`;
+    qs(root, '[data-people-action]').textContent =
+      (peopleCollapsed ? peopleToggle.dataset.edit : peopleToggle.dataset.done) ?? '';
+  }
+  function collapsePeople() {
+    if (host.clientWidth >= 768 || state.origins.length === 0) return;
+    peopleCollapsed = true;
+    syncPeople();
+  }
+  peopleToggle.addEventListener(
+    'click',
+    () => {
+      peopleCollapsed = !peopleCollapsed;
+      syncPeople();
+    },
+    { signal: session.signal },
+  );
+  locInput.addEventListener('focus', collapsePeople, { signal: session.signal });
   const viewToggle = qs<HTMLButtonElement>(root, '[data-view-toggle]');
   viewToggle.addEventListener(
     'click',
@@ -636,6 +667,7 @@ export function startProximity(
   }
 
   function selectLocation(placeId: string, ranked: RankedPlace[], selectOpts?: { fit?: boolean }) {
+    collapsePeople();
     const nextId = selectedLocationId === placeId ? null : placeId;
     selectedLocationId = nextId;
     doRender(ranked, {
@@ -684,6 +716,7 @@ export function startProximity(
     destForm.hidden = false;
     destTools.hidden = false;
     originCount.textContent = state.origins.length > 0 ? ` (${state.origins.length})` : '';
+    syncPeople();
     originEmpty.hidden = state.origins.length > 0;
     destCurrent.hidden = state.origins.length === 0;
     destCurrent.replaceChildren();

@@ -240,3 +240,33 @@ for (const width of [320, 390]) {
     expect(colors.actual).toBe(colors.expected);
   });
 }
+
+test('mobile people summary frees space and can be edited again', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const input = page.locator('[data-dest-input]');
+  await input.fill('-6.88, 107.61');
+  await input.press('Enter');
+  const editor = page.locator('.px-people-editor');
+  const before = (await page.locator('.px-people').boundingBox())!.height;
+  await page.getByRole('option').first().click();
+  await expect(editor).toBeHidden();
+  const toggle = page.locator('[data-people-toggle]');
+  await expect(toggle).toHaveText('2 peopleEdit');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect((await page.locator('.px-people').boundingBox())!.height).toBeLessThan(before - 100);
+  await toggle.click();
+  await expect(input).toBeVisible();
+  await input.fill('-6.92, 107.55');
+  await input.press('Enter');
+  await expect(toggle).toHaveText('3 peopleDone');
+  await toggle.click();
+  await expect(editor).toBeHidden();
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await expect(editor).toBeVisible();
+  await expect(toggle).toBeHidden();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Clear all locations' }).click();
+  await expect(input).toBeVisible();
+  await expect(toggle).toBeHidden();
+});

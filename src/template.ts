@@ -13,7 +13,9 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 		<aside class="px-sidebar">
 			<div class="px-sidebar-body">
 				<p data-io-status class="px-io-status" role="status" aria-live="polite" hidden></p>
-				<section class="px-section">
+				<section class="px-section px-people" data-people>
+					<button type="button" class="px-people-toggle" data-people-toggle data-person="${esc(t.person)}" data-people="${esc(t.people)}" data-edit="${esc(t.editPeople)}" data-done="${esc(t.donePeople)}" aria-expanded="true" aria-controls="px-people-editor" hidden><span data-people-summary></span><span data-people-action>${esc(t.donePeople)}</span></button>
+					<div id="px-people-editor" class="px-section px-people-editor">
 					<h2>${esc(t.destination)}<span data-origin-count class="px-loc-count" aria-hidden="true"></span></h2>
 					<form data-dest-form class="px-search">
 						<label class="px-sr" for="px-dest-input">${esc(t.destPlaceholder)}</label>
@@ -25,6 +27,7 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 					</div>
 					<p data-origin-empty class="px-list-empty">${esc(t.originEmpty)}</p>
 					<div data-dest-current class="px-origin-list" hidden></div>
+					</div>
 				</section>
 
 				<section class="px-section">

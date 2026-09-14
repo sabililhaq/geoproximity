@@ -1411,3 +1411,32 @@ summary:focus-visible,
   border-radius: 0;
   box-shadow: none;
 }
+
+.px-people-toggle {
+  display: none;
+}
+
+@container px (max-width: 767px) {
+  .px-people-toggle:not([hidden]) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 44px;
+    padding: 0.5rem 0;
+    border: 0;
+    background: transparent;
+    color: var(--px-ink);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .px-people-toggle [data-people-action] {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .px-people.is-collapsed .px-people-editor {
+    display: none;
+  }
+}
