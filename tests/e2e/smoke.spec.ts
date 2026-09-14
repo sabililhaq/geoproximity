@@ -270,3 +270,56 @@ test('mobile people summary frees space and can be edited again', async ({ page 
   await expect(input).toBeVisible();
   await expect(toggle).toBeHidden();
 });
+
+for (const viewport of [
+  { width: 320, height: 568 },
+  { width: 1280, height: 800 },
+]) {
+  test(`selecting a venue frames every person at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/#px2=-6.88,107.61,North;-6.92,107.55,West|-6.9,107.6,Venue|');
+    await page.getByRole('option').first().click();
+    await expect
+      .poll(async () =>
+        page.locator('.leaflet-marker-icon').evaluateAll((markers) => {
+          const map = document.querySelector('.px-map-wrap')!.getBoundingClientRect();
+          return (
+            markers.length === 3 &&
+            markers.every((marker) => {
+              const box = marker.getBoundingClientRect();
+              return (
+                box.left >= map.left &&
+                box.right <= map.right &&
+                box.top >= map.top &&
+                box.bottom <= map.bottom
+              );
+            })
+          );
+        }),
+      )
+      .toBe(true);
+  });
+}
+
+test('people labels match the map and names can be edited with buttons', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#px2=-6.88,107.61,North;-6.92,107.55,West|-6.9,107.6,Venue|');
+  await expect(page.locator('.leaflet-marker-icon .px-person-badge')).toHaveText(['A', 'B']);
+  await page.getByRole('button', { name: 'Rename North', exact: true }).click();
+  const person = page.getByRole('textbox', { name: 'Rename North', exact: true });
+  await person.fill('Home');
+  await person.press('Enter');
+  await expect(page.locator('[data-dest-current]')).toContainText('Home');
+  await page.getByRole('option').first().click();
+  await expect(page.locator('.px-peer-list .px-person-badge')).toHaveText(['A', 'B']);
+  await expect(page.locator('.px-peer-list')).toContainText('Home');
+  await expect(page.locator('[data-io-status]')).not.toContainText('calculating distances');
+  await page.getByRole('button', { name: 'Rename Venue', exact: true }).click();
+  const venue = page.getByRole('textbox', { name: 'Rename Venue', exact: true });
+  await venue.fill('Cafe');
+  await venue.press('Enter');
+  await expect(page.getByRole('option')).toContainText('Cafe');
+  await page.reload();
+  await expect(page.locator('[data-dest-current]')).toContainText('Home');
+  await expect(page.getByRole('option')).toContainText('Cafe');
+});

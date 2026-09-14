@@ -11,7 +11,7 @@ import {
 import { reverseGeocode } from './geocoder';
 import { parseProximityJson, type ProximityFile } from './io';
 import { handleLocationListKeyboard } from './list-keyboard';
-import { accentColor, destIcon, locIcon, popupContent } from './markers';
+import { accentColor, destIcon, locIcon, popupContent, personLabel } from './markers';
 import { bindSearch } from './search';
 import { encodeShareHash, readShareHash, readStoredState, writeStoredState } from './share';
 import sampleProximity from './sample-proximity.json';
@@ -532,7 +532,6 @@ export function startProximity(
       return;
     }
     doRender(rankedLocations());
-    if (calculatingGroup()) showStatus(calculatingHint());
   }
 
   async function fillRouteGeometries(ranked: RankedPlace[], signal: AbortSignal) {
@@ -597,7 +596,6 @@ export function startProximity(
     hint.textContent = calculatingGroup()
       ? calculatingHint()
       : `Fetching ${modeLabel(state.distanceMode)} routes…`;
-    if (calculatingGroup()) showStatus(calculatingHint());
 
     try {
       const ranked = await rankedLocationsAsync(signal);
@@ -649,12 +647,26 @@ export function startProximity(
     { signal: session.signal },
   );
 
-  function focusRoute(
-    place: Place & { geometry?: Array<[number, number]> },
-    dest: Place | null,
-    markers: Map<string, L.Marker>,
-  ) {
-    if (dest && place.geometry && place.geometry.length > 1) {
+  function focusRoute(place: RankedPlace, dest: Place | null, markers: Map<string, L.Marker>) {
+    if (isGroup()) {
+      const points: L.LatLngExpression[] = [
+        [place.lat, place.lon],
+        ...state.origins.map((origin) => [origin.lat, origin.lon] as L.LatLngExpression),
+      ];
+      for (const peer of place.peers) {
+        if (peer.geometry) {
+          points.push(...peer.geometry.map(([lon, lat]) => [lat, lon] as L.LatLngExpression));
+        }
+      }
+      // Leave room above the venue for its popup as well as the map controls.
+      const height = map.getSize().y;
+      map.fitBounds(L.latLngBounds(points), {
+        paddingTopLeft: [48, Math.min(160, height * 0.55)],
+        paddingBottomRight: [48, Math.min(60, height * 0.2)],
+        maxZoom: 14,
+        animate: false,
+      });
+    } else if (dest && place.geometry && place.geometry.length > 1) {
       const latlngs = place.geometry.map(([lon, lat]) => [lat, lon] as L.LatLngExpression);
       map.fitBounds(L.latLngBounds(latlngs), {
         padding: [48, 48],
@@ -721,9 +733,9 @@ export function startProximity(
     destCurrent.hidden = state.origins.length === 0;
     destCurrent.replaceChildren();
 
-    for (const origin of state.origins) {
+    for (const [originIndex, origin] of state.origins.entries()) {
       const originMarker = L.marker([origin.lat, origin.lon], {
-        icon: destIcon(),
+        icon: destIcon(group ? personLabel(originIndex) : undefined),
         zIndexOffset: 600,
         title: origin.name,
         draggable: true,
@@ -742,7 +754,10 @@ export function startProximity(
       const originEl = originMarker.getElement();
       if (originEl) {
         originEl.setAttribute('role', 'img');
-        originEl.setAttribute('aria-label', `Starting point, ${origin.name}`);
+        originEl.setAttribute(
+          'aria-label',
+          `Starting point${group ? ` ${personLabel(originIndex)}` : ''}, ${origin.name}`,
+        );
       }
       if (labelsPermanent) {
         originMarker.bindTooltip(popupContent(origin.name), {
@@ -766,6 +781,13 @@ export function startProximity(
       const meta = document.createElement('span');
       meta.textContent = `${origin.lat.toFixed(4)}, ${origin.lon.toFixed(4)}`;
       copy.append(title, meta);
+      if (group) {
+        const badge = document.createElement('span');
+        badge.className = 'px-person-badge';
+        badge.textContent = personLabel(originIndex);
+        copy.prepend(badge);
+      }
+      copy.append(renameButton(origin, title));
       copy.title = 'Show on map';
       copy.addEventListener('click', () => focusPlace(origin));
       const remove = document.createElement('button');
@@ -964,11 +986,17 @@ export function startProximity(
             byTime() && typeof peer.durationSec === 'number' && Number.isFinite(peer.durationSec)
               ? `${formatDuration(peer.durationSec)} · `
               : '';
-          li.textContent = `${origin?.name ?? 'Someone'}: ${peerTime}${peerDist}`;
+          const badge = document.createElement('span');
+          badge.className = 'px-person-badge';
+          badge.textContent = personLabel(
+            state.origins.findIndex((item) => item.id === peer.originId),
+          );
+          li.append(badge, ` ${origin?.name ?? 'Someone'}: ${peerTime}${peerDist}`);
           peers.append(li);
         }
         body.append(peers);
       }
+      if (isSelected) body.append(renameButton(place, name));
       if (group) row.append(rank, body, remove);
       else row.append(rank, body, dist, remove);
       locList.append(row);
@@ -1167,6 +1195,16 @@ export function startProximity(
     syncDestination();
     render();
     fit();
+  }
+
+  function renameButton(place: Place, label: HTMLElement): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'px-rename-button';
+    button.textContent = 'Rename';
+    button.setAttribute('aria-label', `Rename ${place.name}`);
+    button.addEventListener('click', (event) => beginRename(place, label, event));
+    return button;
   }
 
   function beginRename(place: Place, el: HTMLElement, event?: Event) {

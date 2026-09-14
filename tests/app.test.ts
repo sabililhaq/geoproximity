@@ -192,7 +192,7 @@ describe('group ranking', () => {
     expect(rows(root)[0]!.querySelectorAll('.px-peer-list li').length).toBe(2);
   });
 
-  it('tells the user when several places are ranked for several people', () => {
+  it('announces the completed straight-line ranking', () => {
     const root = document.createElement('div');
     document.body.append(root);
     const handle = mountProximity(root, {});
@@ -210,7 +210,7 @@ describe('group ranking', () => {
     });
 
     expect(root.querySelector('[data-io-status]')?.textContent?.toLowerCase()).toContain(
-      'multi-peer mode, calculating distances',
+      'ranked by farthest person',
     );
   });
 });

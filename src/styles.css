@@ -1440,3 +1440,41 @@ summary:focus-visible,
     display: none;
   }
 }
+
+.px-person-badge,
+.px-dest-card .px-person-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  margin: 0 0.2rem 0 0;
+  padding: 0 0.15rem;
+  box-sizing: border-box;
+  border-radius: 5px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.px-marker .px-person-badge {
+  width: 26px;
+  height: 26px;
+  border: 2px solid white;
+  box-shadow: 0 1px 4px #0006;
+}
+
+.px-rename-button {
+  display: block;
+  min-height: 44px;
+  padding: 0.3rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--px-ink);
+  font: inherit;
+  font-size: 0.75rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
