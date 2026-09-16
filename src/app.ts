@@ -838,6 +838,22 @@ export function startProximity(
     for (const [index, place] of ranked.entries()) {
       const kmLabel = placeMetricLabel(place);
       const isSelected = place.id === selectedLocationId;
+      const farthestLabel =
+        Number.isFinite(place.km) && !place.error
+          ? `${formatDistance(place.km)}`
+          : Number.isFinite(place.km)
+            ? `≈ ${formatDistance(place.km)}`
+            : '—';
+      const totalLabel =
+        Number.isFinite(place.totalKm) && !place.error
+          ? `${formatDistance(place.totalKm)}`
+          : Number.isFinite(place.totalKm)
+            ? `≈ ${formatDistance(place.totalKm)}`
+            : '—';
+      const groupMeta =
+        group && (Number.isFinite(place.km) || Number.isFinite(place.totalKm))
+          ? `Farthest: ${farthestLabel} · Total: ${totalLabel}`
+          : '';
       const locMarker = L.marker([place.lat, place.lon], {
         icon: locIcon(index + 1, isSelected),
         zIndexOffset: isSelected ? 550 : 400,
@@ -996,7 +1012,12 @@ export function startProximity(
       const body = document.createElement('div');
       body.className = 'px-row-body';
       body.append(name);
-      if (group) body.append(dist);
+      if (group) {
+        const meta = document.createElement('span');
+        meta.className = 'px-row-meta';
+        meta.textContent = groupMeta;
+        body.append(dist, meta);
+      }
       if (group && isSelected && place.peers.length > 0) {
         const peers = document.createElement('ul');
         peers.className = 'px-peer-list';

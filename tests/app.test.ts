@@ -213,6 +213,24 @@ describe('group ranking', () => {
       'ranked by farthest person',
     );
   });
+
+  it('shows the farthest peer and total travel on grouped rows', () => {
+    const { root, stop } = mountWithHash({
+      origins: [
+        { name: 'North', lat: -6.88, lon: 107.61 },
+        { name: 'West', lat: -6.9206, lon: 107.55 },
+      ],
+      locations: [
+        { name: 'Cafe N', lat: -6.882, lon: 107.611 },
+        { name: 'Cafe M', lat: -6.9, lon: 107.58 },
+      ],
+    });
+    cleanups.push(stop);
+
+    const meta = rows(root)[0]?.querySelector('.px-row-meta');
+    expect(meta).not.toBeNull();
+    expect(meta?.textContent).toMatch(/Farthest:|Total:/);
+  });
 });
 
 describe('programmatic API', () => {

@@ -655,6 +655,16 @@ summary:focus-visible,
   overflow-wrap: anywhere;
 }
 
+.px-row-meta {
+  display: block;
+  margin-top: 0.16rem;
+  color: var(--px-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .px-peer-list .is-farthest {
   color: var(--px-ink);
   font-weight: 600;
