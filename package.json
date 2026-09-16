@@ -1,6 +1,6 @@
 {
   "name": "geoproximity",
-  "version": "0.1.14",
+  "version": "0.1.16",
   "description": "Rank places by proximity to one destination, or fairly across several people.",
   "type": "module",
   "sideEffects": [
