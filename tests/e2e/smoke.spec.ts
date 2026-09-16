@@ -195,10 +195,22 @@ for (const width of [320, 390, 844, 1280]) {
     expect(layout.detailsWidth).toBeGreaterThan(180);
     expect(layout.separated).toBe(true);
     expect(layout.metricFits).toBe(true);
-    const hint = await page.locator('.px-hint').boundingBox();
-    const map = await page.locator('.px-map-wrap').boundingBox();
-    expect(hint!.x).toBeGreaterThanOrEqual(map!.x);
-    expect(hint!.x + hint!.width).toBeLessThanOrEqual(map!.x + map!.width);
+    if (width < 768) {
+      await expect(page.locator('.px-hint')).toBeHidden();
+    } else {
+      const hint = await page.locator('.px-hint').boundingBox();
+      const map = await page.locator('.px-map-wrap').boundingBox();
+      expect(hint!.x).toBeGreaterThanOrEqual(map!.x);
+      expect(hint!.x + hint!.width).toBeLessThanOrEqual(map!.x + map!.width);
+    }
+    const title = row.locator('.px-row-name');
+    await expect
+      .poll(async () => {
+        const heading = (await title.boundingBox())!;
+        const panel = (await page.locator('.px-sidebar-body').boundingBox())!;
+        return heading.y >= panel.y && heading.y + heading.height <= panel.y + panel.height;
+      })
+      .toBe(true);
   });
 }
 
@@ -322,4 +334,57 @@ test('people labels match the map and names can be edited with buttons', async (
   await page.reload();
   await expect(page.locator('[data-dest-current]')).toContainText('Home');
   await expect(page.getByRole('option')).toContainText('Cafe');
+});
+
+test('refits a selected group when resized from desktop to mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/#px2=-6.88,107.61,North;-6.92,107.55,West|-6.9,107.6,Venue|');
+  await page.getByRole('option').first().click();
+  await page.setViewportSize({ width: 320, height: 568 });
+  await expect
+    .poll(() =>
+      page.locator('.leaflet-marker-icon').evaluateAll((markers) => {
+        const map = document.querySelector('.px-map-wrap')!.getBoundingClientRect();
+        return (
+          markers.length === 3 &&
+          markers.every((marker) => {
+            const box = marker.getBoundingClientRect();
+            return (
+              box.left >= map.left &&
+              box.right <= map.right &&
+              box.top >= map.top &&
+              box.bottom <= map.bottom
+            );
+          })
+        );
+      }),
+    )
+    .toBe(true);
+});
+
+test('fetches pedestrian geometry when selecting a multi-person venue', async ({ page }) => {
+  await page.route('https://routing.openstreetmap.de/routed-foot/**', (route) => {
+    const url = new URL(route.request().url());
+    const coordinates = url.pathname
+      .split('/')
+      .at(-1)!
+      .split(';')
+      .map((pair) => pair.split(',').map(Number));
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(
+        url.pathname.includes('/table/')
+          ? { code: 'Ok', distances: [[4000], [5000]], durations: [[3000], [3600]] }
+          : { code: 'Ok', routes: [{ distance: 5000, duration: 3600, geometry: { coordinates } }] },
+      ),
+    });
+  });
+  await page.goto('/#px2=-6.88,107.61,North;-6.92,107.55,West|-6.9,107.6,Venue|');
+  await page.getByRole('button', { name: 'Walking', exact: true }).click();
+  await expect(page.getByRole('option')).toContainText('1 h');
+  await page.getByRole('option').click();
+  await expect(page.locator('.px-edge-routed.px-edge-highlight')).toHaveCount(2);
+  await expect(page.locator('.px-peer-list')).toContainText('North: 50 min');
+  await expect(page.locator('.px-peer-list')).toContainText('West: 1 h');
 });

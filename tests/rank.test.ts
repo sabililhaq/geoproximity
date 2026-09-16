@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rankCandidates } from '../src/rank';
+import { rankCandidates, type PeerLeg } from '../src/rank';
 
 const braga = { id: 'braga', name: 'Braga', lat: -6.9206, lon: 107.61 };
 const north = { id: 'north', name: 'North', lat: -6.88, lon: 107.61 };
@@ -64,3 +64,29 @@ describe('rankCandidates', () => {
     expect(ranked[0]!.peers).toEqual([]);
   });
 });
+
+for (const reverse of [false, true]) {
+  it(`keeps incomplete trips behind complete routes (reverse people: ${reverse})`, () => {
+    const origins = reverse ? [west, north] : [north, west];
+    const legs = new Map<string, PeerLeg>([
+      ['north|cafe-n', { originId: 'north', km: 1, error: 'network' }],
+      ['west|cafe-n', { originId: 'west', km: 2, durationSec: 20 }],
+      ['north|cafe-m', { originId: 'north', km: 8, durationSec: 900 }],
+      ['west|cafe-m', { originId: 'west', km: 8, durationSec: 900 }],
+    ]);
+    for (const byTime of [true, false]) {
+      const ranked = rankCandidates([cafeNearNorth, cafeMiddle], origins, legs, byTime);
+      expect(ranked[0].id).toBe('cafe-m');
+      if (byTime) {
+        expect(ranked[1].durationSec).toBeUndefined();
+        expect(ranked[1].totalDurationSec).toBeUndefined();
+        expect(ranked[1].farthestOriginId).toBe('north');
+      }
+    }
+    // A missing time without an explicit network error is still incomplete.
+    legs.set('north|cafe-n', { originId: 'north', km: 1 });
+    const ranked = rankCandidates([cafeNearNorth, cafeMiddle], origins, legs, true);
+    expect(ranked[0].id).toBe('cafe-m');
+    expect(ranked[1].durationSec).toBeUndefined();
+  });
+}

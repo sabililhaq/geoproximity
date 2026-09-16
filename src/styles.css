@@ -1478,3 +1478,10 @@ summary:focus-visible,
   text-underline-offset: 3px;
   cursor: pointer;
 }
+
+/* The selected card already explains the action; keep small maps clear. */
+@media (max-width: 767px) {
+  [data-proximity].has-selection:not(.is-routing) .px-hint {
+    display: none;
+  }
+}

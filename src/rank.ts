@@ -27,10 +27,17 @@ export function peerMapKey(originId: string, candidateId: string): string {
 }
 
 export function compareRanked(
-  a: Pick<RankedCandidate<{ id: string }>, 'km' | 'durationSec' | 'totalKm' | 'totalDurationSec'>,
-  b: Pick<RankedCandidate<{ id: string }>, 'km' | 'durationSec' | 'totalKm' | 'totalDurationSec'>,
+  a: Pick<
+    RankedCandidate<{ id: string }>,
+    'km' | 'durationSec' | 'totalKm' | 'totalDurationSec' | 'error'
+  >,
+  b: Pick<
+    RankedCandidate<{ id: string }>,
+    'km' | 'durationSec' | 'totalKm' | 'totalDurationSec' | 'error'
+  >,
   byTime: boolean,
 ): number {
+  if (Boolean(a.error) !== Boolean(b.error)) return a.error ? 1 : -1;
   if (byTime) {
     const at =
       typeof a.durationSec === 'number' && Number.isFinite(a.durationSec)
@@ -74,6 +81,7 @@ function scoreCandidate<T extends Candidate>(
   let farthestOriginId: string | null = null;
   let worstKm = Number.NaN;
   let worstDuration = Number.NaN;
+  let currentWorst = -Infinity;
   let totalKm = 0;
   let totalDuration = 0;
   let durationCount = 0;
@@ -93,14 +101,8 @@ function scoreCandidate<T extends Candidate>(
       : Number.isFinite(peer.km)
         ? peer.km
         : Infinity;
-    const currentWorst = byTime
-      ? Number.isFinite(worstDuration)
-        ? worstDuration
-        : -Infinity
-      : Number.isFinite(worstKm)
-        ? worstKm
-        : -Infinity;
     if (peerWorst >= currentWorst) {
+      currentWorst = peerWorst;
       farthestOriginId = peer.originId;
       worstKm = peer.km;
       worstDuration =

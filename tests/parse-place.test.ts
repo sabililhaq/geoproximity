@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { parseCoordinates, parseMapsUrl, parsePlaceInput, parsePlaceLines } from '../src/parse-place';
+import {
+  parseCoordinates,
+  parseMapsUrl,
+  parsePlaceInput,
+  parsePlaceLines,
+} from '../src/parse-place';
 
 describe('parseCoordinates', () => {
   it('reads lat, lon pairs', () => {

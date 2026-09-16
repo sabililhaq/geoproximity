@@ -84,7 +84,9 @@ export type ProximityHandle = {
   (): void;
   destroy: () => void;
   getState: () => ProximityState;
-  setState: (next: Partial<ProximityState> | ProximityFile) => void;
+  setState: (
+    next: Partial<ProximityState> | (Partial<ProximityFile> & { distanceMode?: DistanceMode }),
+  ) => void;
   onChange: (listener: (state: ProximityState) => void) => () => void;
 };
 
@@ -134,6 +136,7 @@ export function startProximity(
   let keyboardFocusedRowId: string | null = null;
   let currentRanked: RankedPlace[] = [];
   let distanceAbort: AbortController | null = null;
+  let selectionAbort: AbortController | null = null;
   let lastRankAnnouncement = '';
   const LABEL_ZOOM = 13;
   let labelsPermanent = false;
@@ -198,6 +201,9 @@ export function startProximity(
   L.control.scale({ maxWidth: 120 }).addTo(map);
   const cartoApiKey = resolveCartoApiKey(options.cartoApiKey);
   let tileErrorShown = false;
+  let walkingAttributionShown = false;
+  const walkingAttribution =
+    'Routing © <a href="https://map.project-osrm.org/about.html">FOSSGIS</a> · <a href="https://www.openstreetmap.org/fixthemap">Fix the map</a>';
   const addTiles = () => {
     const layer = L.tileLayer(cartoTileUrl(document.documentElement.dataset.theme, cartoApiKey), {
       maxZoom: 19,
@@ -227,7 +233,13 @@ export function startProximity(
     attributeFilter: ['data-theme'],
   });
 
-  const resize = new ResizeObserver(() => map.invalidateSize());
+  const resize = new ResizeObserver(() => {
+    map.invalidateSize();
+    const selected = currentRanked.find((place) => place.id === selectedLocationId);
+    if (selected && mapEl.clientWidth > 0 && mapEl.clientHeight > 0) {
+      focusRoute(selected, state.destination, overlayMarkers);
+    }
+  });
   if (resizer && layout) {
     let isDragging = false;
     let isVertical = true;
@@ -270,7 +282,7 @@ export function startProximity(
     });
   }
 
-  resize.observe(host);
+  resize.observe(mapEl);
 
   const visualViewport = window.visualViewport;
   let inputVisibilityFrame = 0;
@@ -400,6 +412,7 @@ export function startProximity(
         ? formatDuration(place.durationSec)
         : '';
     if (isGroup()) {
+      if (byTime() && !time) return 'Travel time incomplete';
       const farthest = time ? `${time} · ${dist}` : dist;
       const total =
         byTime() &&
@@ -527,6 +540,7 @@ export function startProximity(
   }
 
   function render() {
+    selectionAbort?.abort();
     if (state.distanceMode !== 'straight') {
       void renderAsync();
       return;
@@ -543,7 +557,7 @@ export function startProximity(
       const id = ++scheduled;
       requestAnimationFrame(() => {
         if (id !== scheduled || signal.aborted) return;
-        doRender(currentRanked);
+        doRender(currentRanked, { fitSelection: Boolean(selectedLocationId) });
       });
     };
 
@@ -679,12 +693,17 @@ export function startProximity(
   }
 
   function selectLocation(placeId: string, ranked: RankedPlace[], selectOpts?: { fit?: boolean }) {
+    selectionAbort?.abort();
     collapsePeople();
     const nextId = selectedLocationId === placeId ? null : placeId;
     selectedLocationId = nextId;
     doRender(ranked, {
       fitSelection: Boolean(selectOpts?.fit && nextId),
     });
+    if (nextId && state.distanceMode !== 'straight') {
+      selectionAbort = new AbortController();
+      void fillRouteGeometries(ranked, selectionAbort.signal);
+    }
   }
 
   locList.addEventListener(
@@ -712,6 +731,12 @@ export function startProximity(
       );
     }
     applyRouteAnimation();
+    const walking = state.distanceMode === 'walking';
+    if (walking !== walkingAttributionShown) {
+      if (walking) map.attributionControl.addAttribution(walkingAttribution);
+      else map.attributionControl.removeAttribution(walkingAttribution);
+      walkingAttributionShown = walking;
+    }
 
     labelsPermanent = map.getZoom() >= LABEL_ZOOM;
     overlay.clearLayers();
@@ -991,7 +1016,10 @@ export function startProximity(
           badge.textContent = personLabel(
             state.origins.findIndex((item) => item.id === peer.originId),
           );
-          li.append(badge, ` ${origin?.name ?? 'Someone'}: ${peerTime}${peerDist}`);
+          li.append(
+            badge,
+            ` ${origin?.name ?? 'Someone'}: ${peerTime}${peerDist}${byTime() && !peerTime ? ' · time unavailable' : ''}`,
+          );
           peers.append(li);
         }
         body.append(peers);
@@ -1003,11 +1031,13 @@ export function startProximity(
       if (isSelected) {
         queueMicrotask(() => {
           const rowRect = row.getBoundingClientRect();
-          const listRect = locList.getBoundingClientRect();
-          if (rowRect.top < listRect.top) {
-            locList.scrollTop -= listRect.top - rowRect.top;
-          } else if (rowRect.bottom > listRect.bottom) {
-            locList.scrollTop += rowRect.bottom - listRect.bottom;
+          const scroller = row.closest<HTMLElement>('.px-sidebar-body');
+          if (!scroller || !row.isConnected) return;
+          const panel = scroller.getBoundingClientRect();
+          if (rowRect.top < panel.top || rowRect.height > panel.height) {
+            scroller.scrollTop += rowRect.top - panel.top;
+          } else if (rowRect.bottom > panel.bottom) {
+            scroller.scrollTop += rowRect.bottom - panel.bottom;
           }
         });
       }
@@ -1048,6 +1078,7 @@ export function startProximity(
       hint.textContent = 'Click the map to add a starting point';
     }
     hint.hidden = !hasNodes;
+    host.classList.toggle('has-selection', Boolean(selected));
     empty.hidden = hasNodes;
     fitBtn.disabled = !hasNodes;
     clearBtn.disabled = !hasNodes;
@@ -1075,11 +1106,13 @@ export function startProximity(
           ? 'distance'
           : 'time';
       const win = isGroup() ? 'fairest' : 'closest';
-      showStatus(
-        metric
-          ? `Ranked by ${by} · ${top.name} is ${win} at ${metric}`
-          : `Ranked by ${by} · ${top.name} is ${win}`,
-      );
+      if (!top.error && (!byTime() || top.totalDurationSec !== undefined)) {
+        showStatus(
+          metric
+            ? `Ranked by ${by} · ${top.name} is ${win} at ${metric}`
+            : `Ranked by ${by} · ${top.name} is ${win}`,
+        );
+      }
     }
     lastRankAnnouncement = orderKey;
     notifyChange();
@@ -1552,7 +1585,9 @@ export function startProximity(
   if (invalidShared) showStatus('That shared comparison link is invalid.');
   window.setTimeout(() => map.invalidateSize(), 0);
 
-  function setState(next: Partial<ProximityState> | ProximityFile) {
+  function setState(
+    next: Partial<ProximityState> | (Partial<ProximityFile> & { distanceMode?: DistanceMode }),
+  ) {
     if ('origins' in next && next.origins) {
       state.origins = next.origins.map((node) => ({
         id: crypto.randomUUID(),
@@ -1594,6 +1629,7 @@ export function startProximity(
     changeListeners.clear();
     session.abort();
     distanceAbort?.abort();
+    selectionAbort?.abort();
     window.clearTimeout(statusTimer);
     themeObs.disconnect();
     resize.disconnect();

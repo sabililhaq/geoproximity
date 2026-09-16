@@ -8,6 +8,8 @@ import {
   samePlace,
   withDistance,
   withNetworkDistance,
+  withNetworkMatrix,
+  getNetworkDistance,
 } from '../src/geo';
 
 const paris = { lat: 48.8566, lon: 2.3522 };
@@ -205,5 +207,56 @@ describe('withNetworkDistance', () => {
     expect(ranked[0]!.km).toBe(344);
     expect(ranked[0]!.durationSec).toBe(14_400);
     expect(ranked[0]!.geometry).toBeUndefined();
+  });
+});
+
+describe('pedestrian routing', () => {
+  afterEach(() => {
+    clearRouteCache();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('uses the foot backend for matrices, single-destination tables, and route geometry', async () => {
+    const calls: URL[] = [];
+    const fetchMock = vi.fn(async (url: string) => {
+      calls.push(new URL(url));
+      return new Response(
+        JSON.stringify(
+          url.includes('/table/')
+            ? { code: 'Ok', distances: [[5000]], durations: [[3600]] }
+            : {
+                code: 'Ok',
+                routes: [
+                  {
+                    distance: 5000,
+                    duration: 3600,
+                    geometry: {
+                      coordinates: [
+                        [2, 48],
+                        [3, 49],
+                      ],
+                    },
+                  },
+                ],
+              },
+        ),
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const matrix = await withNetworkMatrix(
+      [{ id: 'a', ...paris }],
+      [{ id: 'b', ...london }],
+      'walking',
+    );
+    expect(matrix.get('a|b')?.durationSec).toBe(3600);
+    const route = await getNetworkDistance(paris, london, 'walking');
+    expect(route.geometry).toHaveLength(2);
+    await withNetworkDistance([paris], nyc, 'walking');
+    expect(calls).toHaveLength(3);
+    for (const url of calls) {
+      expect(url.origin).toBe('https://routing.openstreetmap.de');
+      expect(url.pathname).toMatch(/^\/routed-foot\/(route|table)\/v1\/foot\//);
+    }
   });
 });

@@ -207,10 +207,14 @@ export function bindSearch(
       if (!allowBulk) return;
       const text = event.clipboardData?.getData('text') ?? '';
       if (!text.includes('\n')) return;
-      const lines = [...new Set(text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean))].slice(
-        0,
-        20,
-      );
+      const lines = [
+        ...new Set(
+          text
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean),
+        ),
+      ].slice(0, 20);
       if (lines.length === 0) return;
 
       const coordinates = lines.map((line) => parsePlaceInput(line));

@@ -98,6 +98,35 @@ function routeCacheKey(mode: string, a: Coord, b: Coord): string {
   return `${mode}:${coordKey(a)}:${coordKey(b)}`;
 }
 
+// OSRM profiles are chosen by the backend's prepared graph, not the URL label.
+function routingUrl(mode: 'driving' | 'walking', service: 'route' | 'table'): string {
+  return mode === 'walking'
+    ? `https://routing.openstreetmap.de/routed-foot/${service}/v1/foot`
+    : `https://router.project-osrm.org/${service}/v1/driving`;
+}
+
+let walkingQueue: Promise<unknown> = Promise.resolve();
+let nextWalkingRequest = 0;
+
+function fetchRouting(
+  url: string,
+  mode: 'driving' | 'walking',
+  signal?: AbortSignal,
+): Promise<Response> {
+  if (mode === 'driving') return fetch(url, { signal });
+  // The public pedestrian service permits at most one request per second.
+  const request = walkingQueue.then(async () => {
+    signal?.throwIfAborted();
+    const delay = nextWalkingRequest - Date.now();
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+    signal?.throwIfAborted();
+    nextWalkingRequest = Date.now() + 1000;
+    return fetch(url, { signal });
+  });
+  walkingQueue = request.catch(() => {});
+  return request;
+}
+
 const routeCache = new Map<string, RouteResult>();
 
 export function clearRouteCache(): void {
@@ -130,10 +159,10 @@ export async function getNetworkDistance(
   };
 
   try {
-    const url = `https://router.project-osrm.org/route/v1/${mode}/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson`;
+    const url = `${routingUrl(mode, 'route')}/${a.lon},${a.lat};${b.lon},${b.lat}?overview=full&geometries=geojson`;
     let response: Response;
     try {
-      response = await fetch(url, { signal });
+      response = await fetchRouting(url, mode, signal);
     } catch (err) {
       if (isAbortError(err) || signal?.aborted) {
         return { km: distanceKm(a, b), error: 'network' };
@@ -201,10 +230,10 @@ async function fetchDistanceTable<T extends Coord>(
   if (items.length === 0) return [];
   const coords = [destination, ...items].map((c) => `${c.lon},${c.lat}`).join(';');
   const sources = items.map((_, i) => i + 1).join(';');
-  const url = `https://router.project-osrm.org/table/v1/${mode}/${coords}?annotations=duration,distance&sources=${sources}&destinations=0`;
+  const url = `${routingUrl(mode, 'table')}/${coords}?annotations=duration,distance&sources=${sources}&destinations=0`;
 
   try {
-    const response = await fetch(url, { signal });
+    const response = await fetchRouting(url, mode, signal);
     if (!response.ok) {
       console.warn(`OSRM table HTTP error: ${response.status}`);
       return null;
@@ -345,10 +374,10 @@ async function fetchManyToManyTable<
   const coords = [...origins, ...destinations].map((c) => `${c.lon},${c.lat}`).join(';');
   const sources = origins.map((_, i) => i).join(';');
   const destIndex = destinations.map((_, i) => i + origins.length).join(';');
-  const url = `https://router.project-osrm.org/table/v1/${mode}/${coords}?annotations=duration,distance&sources=${sources}&destinations=${destIndex}`;
+  const url = `${routingUrl(mode, 'table')}/${coords}?annotations=duration,distance&sources=${sources}&destinations=${destIndex}`;
 
   try {
-    const response = await fetch(url, { signal });
+    const response = await fetchRouting(url, mode, signal);
     if (!response.ok) {
       console.warn(`OSRM table HTTP error: ${response.status}`);
       return null;
