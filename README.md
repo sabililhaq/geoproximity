@@ -29,6 +29,8 @@ With several people, places are ranked by the farthest person for straight-line 
 
 People can share a starting point, and a meeting place can be at someone's starting point. Loaded comparisons keep the people section collapsed; choose **Edit** to add or change people. On phones the map sits above the comparison, switching to a side-by-side layout in short landscape viewports.
 
+To try a group comparison, open the **sample button** in the bottom toolbar and choose **Group meetup**. It loads three fictional people around Bandung and three illustrative meeting points, using straight-line distance. **Default sample** returns to the original example (or the host application's custom sample).
+
 ### Choosing a restaurant
 
 Same shape as the travel-hub case: one place you care about (home, office, hotel) and several restaurant options ranked to it.

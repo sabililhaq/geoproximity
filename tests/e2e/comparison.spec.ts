@@ -4,6 +4,41 @@ const comparison =
   '/#px2=-6.88,107.61,North;-6.92,107.55,West|-6.9,107.6,Cafe;-6.91,107.58,Library|';
 const rows = (page: Page) => page.locator('[data-loc-list] [role=option]');
 
+for (const width of [320, 1280]) {
+  test(`sample chooser loads and persists a group meetup at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 320 ? 568 : 800 });
+    const trigger = page.locator('.px-actions [data-sample]');
+    await trigger.click();
+    await expect(page.getByRole('button', { name: 'Group meetup', exact: true })).toBeInViewport();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-samples]')).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await page.getByRole('button', { name: 'Group meetup', exact: true }).click();
+    await expect(page.locator('[data-samples]')).toBeHidden();
+    await expect(page.locator('[data-people-toggle]')).toHaveText('3 peopleEdit');
+    await expect(rows(page)).toHaveCount(3);
+    await expect(rows(page).first()).toContainText('Central meeting point');
+    await rows(page).first().click();
+    await page.locator('.px-trip-details summary').click();
+    await expect(page.locator('.px-peer-list li')).toHaveCount(3);
+    await expect(page.locator('.px-peer-list')).toContainText('Alya');
+    await page.reload();
+    await expect(page.locator('[data-people-toggle]')).toHaveText('3 peopleEdit');
+    await expect(rows(page)).toHaveCount(3);
+    await trigger.click();
+    await page.getByRole('button', { name: 'Default sample', exact: true }).click();
+    await expect(page.locator('[data-people-toggle]')).toHaveText('1 personEdit');
+    await expect(rows(page)).toHaveCount(4);
+    // The empty-state sample action opens the same chooser.
+    await page.locator('[data-clear]').click();
+    await page.locator('.px-map-empty [data-sample]').click();
+    await page.getByRole('button', { name: 'Group meetup', exact: true }).click();
+    await expect(page.locator('[data-people-toggle]')).toHaveText('3 peopleEdit');
+    await expect(trigger).toBeFocused();
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route(/basemaps\.cartocdn\.com/, (route) =>
     route.fulfill({

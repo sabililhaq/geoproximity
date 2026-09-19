@@ -15,6 +15,7 @@ import { accentColor, destIcon, locIcon, popupContent, personLabel } from './mar
 import { bindSearch } from './search';
 import { encodeShareHash, readShareHash, readStoredState, writeStoredState } from './share';
 import sampleProximity from './sample-proximity.json';
+import sampleGroup from './sample-group.json';
 import { cartoTileUrl, resolveCartoApiKey } from './basemap';
 import { rankCandidates, type PeerLeg, type RankedCandidate } from './rank';
 import type { Place, ProximityState, DistanceMode } from './types';
@@ -116,6 +117,7 @@ export function startProximity(
   const layout = root.querySelector('.px-layout') as HTMLElement | null;
   const shareBtn = qs<HTMLButtonElement>(root, '[data-share]');
   const sampleButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-sample]'));
+  const sampleChoices = qs(root, '[data-samples]');
   const ioStatus = qs(root, '[data-io-status]');
   const hint = qs(root, '[data-px-hint]');
   const routeRetry = qs<HTMLButtonElement>(root, '[data-route-retry]');
@@ -1376,27 +1378,86 @@ export function startProximity(
 
   fitBtn.addEventListener('click', () => fit(true), { signal: session.signal });
 
-  function loadSample(announce = true) {
-    const custom = typeof options.sample === 'object' ? options.sample : null;
+  function loadSample(announce = true, group = false) {
+    const custom = !group && typeof options.sample === 'object' ? options.sample : null;
     const result = custom
       ? { ok: true as const, data: custom }
-      : parseProximityJson(JSON.stringify(sampleProximity));
+      : parseProximityJson(JSON.stringify(group ? sampleGroup : sampleProximity));
     if (!result.ok) {
       showStatus(result.error);
       return;
     }
+    if (announce) state.distanceMode = 'straight';
     applyFile(result.data);
     if (!announce) return;
     const originCountLoaded = result.data.origins?.length ?? (result.data.destination ? 1 : 0);
-    const count = result.data.locations.length + originCountLoaded;
-    showStatus(`Loaded sample · ${count} nodes.`);
+    showStatus(
+      `Loaded ${group ? 'group meetup' : 'sample'} · ${originCountLoaded} ${originCountLoaded === 1 ? 'person' : 'people'}, ${result.data.locations.length} places.`,
+    );
   }
 
-  for (const btn of sampleButtons) {
-    btn.addEventListener('click', () => loadSample(true), {
-      signal: session.signal,
-    });
+  let sampleTrigger: HTMLButtonElement | null = null;
+  function closeSamples(restoreFocus = false) {
+    sampleChoices.hidden = true;
+    for (const button of sampleButtons) button.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) {
+      const trigger = sampleTrigger?.getClientRects().length ? sampleTrigger : sampleButtons[0];
+      trigger?.focus();
+    }
   }
+  for (const btn of sampleButtons) {
+    btn.setAttribute('aria-controls', sampleChoices.id);
+    btn.setAttribute('aria-expanded', 'false');
+    btn.addEventListener(
+      'click',
+      () => {
+        if (!sampleChoices.hidden) {
+          closeSamples(true);
+          return;
+        }
+        sampleTrigger = btn;
+        sampleChoices.hidden = false;
+        for (const button of sampleButtons) button.setAttribute('aria-expanded', 'true');
+        sampleChoices.querySelector<HTMLButtonElement>('button')?.focus();
+      },
+      {
+        signal: session.signal,
+      },
+    );
+  }
+  for (const choice of sampleChoices.querySelectorAll<HTMLButtonElement>('[data-sample-kind]')) {
+    choice.addEventListener(
+      'click',
+      () => {
+        loadSample(true, choice.dataset.sampleKind === 'group');
+        closeSamples(true);
+      },
+      { signal: session.signal },
+    );
+  }
+  document.addEventListener(
+    'click',
+    (event) => {
+      if (
+        event.target instanceof Node &&
+        !sampleChoices.contains(event.target) &&
+        !sampleButtons.some((button) => button.contains(event.target as Node))
+      )
+        closeSamples();
+    },
+    { signal: session.signal },
+  );
+  root.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key === 'Escape' && !sampleChoices.hidden) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeSamples(true);
+      }
+    },
+    { signal: session.signal },
+  );
 
   if (options.share) {
     shareBtn.setAttribute('aria-label', 'Share this comparison');

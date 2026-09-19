@@ -450,6 +450,7 @@ describe('multiple instances', () => {
 
     // Loading the sample in A must not populate B.
     a.querySelector<HTMLButtonElement>('[data-sample]')!.click();
+    a.querySelector<HTMLButtonElement>('[data-sample-kind="group"]')!.click();
     expect(rows(a).length).toBeGreaterThan(0);
     expect(rows(b)).toHaveLength(0);
   });

@@ -757,6 +757,18 @@ summary:focus-visible,
   align-items: center;
 }
 
+.px-samples:not([hidden]) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  padding-bottom: 0.5rem;
+}
+
+.px-samples button {
+  min-height: 44px;
+  font-size: 0.78rem;
+}
+
 .px-io-row {
   display: flex;
   flex-wrap: wrap;

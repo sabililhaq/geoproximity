@@ -1,0 +1,12 @@
+{
+  "origins": [
+    { "name": "A · North Bandung", "lat": -6.88, "lon": 107.61 },
+    { "name": "B · West Bandung", "lat": -6.92, "lon": 107.55 },
+    { "name": "C · South Bandung", "lat": -6.94, "lon": 107.63 }
+  ],
+  "locations": [
+    { "name": "Central meeting point", "lat": -6.91, "lon": 107.6 },
+    { "name": "Northern meeting point", "lat": -6.885, "lon": 107.615 },
+    { "name": "Western meeting point", "lat": -6.915, "lon": 107.565 }
+  ]
+}

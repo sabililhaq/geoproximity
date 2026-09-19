@@ -76,6 +76,10 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 			</div>
 
 			<div class="px-actions">
+                <div id="px-samples" data-samples class="px-samples" role="group" aria-label="${esc(t.sample)}" hidden>
+                    <button type="button" data-sample-kind="default">${esc(t.sampleDefault)}</button>
+                    <button type="button" data-sample-kind="group">${esc(t.sampleGroup)}</button>
+                </div>
 				<div class="px-io-row">
 					<button type="button" data-sample title="${esc(t.sample)}" aria-label="${esc(t.sample)}">
 						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"></path><path d="M8 8h8v8H8z"></path></svg>
