@@ -84,7 +84,7 @@ function fromNodes(nodes: unknown[]): ProximityFile | null {
 }
 
 function fileOrigins(data: ProximityFile): ProximityNode[] {
-  if (data.origins && data.origins.length > 0) return uniqueNodes(data.origins);
+  if (data.origins && data.origins.length > 0) return data.origins;
   return data.destination ? [data.destination] : [];
 }
 
@@ -169,23 +169,14 @@ export function parseProximityJson(text: string): ParseResult {
     locations.push(node);
   }
 
-  const originList = uniqueNodes(origins.length > 0 ? origins : destination ? [destination] : []);
-  const originSet = originList;
+  const originList = origins.length > 0 ? origins : destination ? [destination] : [];
 
   return {
     ok: true,
     data: {
       destination: originList[0] ?? null,
       origins: originList.length > 1 ? originList : undefined,
-      locations: uniqueNodes(
-        locations.filter(
-          (node) =>
-            !originSet.some(
-              (origin) =>
-                Math.abs(node.lat - origin.lat) < 1e-4 && Math.abs(node.lon - origin.lon) < 1e-4,
-            ),
-        ),
-      ),
+      locations: uniqueNodes(locations),
     },
   };
 }

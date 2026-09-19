@@ -13,6 +13,12 @@ export function handleLocationListKeyboard<T extends ListKeyboardItem>(
   ranked: T[],
   handlers: ListKeyboardHandlers<T>,
 ): void {
+  // Buttons, disclosure summaries and editors keep their native keyboard behavior.
+  if (
+    event.target instanceof Element &&
+    event.target.closest('button, input, summary, a, textarea, select')
+  )
+    return;
   const currentIndex = ranked.findIndex((item) => item.id === handlers.focusedId);
 
   switch (event.key) {

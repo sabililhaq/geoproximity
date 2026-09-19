@@ -9,6 +9,14 @@ const paris = { name: 'Paris', lat: 48.8566, lon: 2.3522 };
 const london = { name: 'London', lat: 51.5074, lon: -0.1278 };
 
 describe('serializeProximity', () => {
+  it('preserves separate people and a venue at the same coordinates on roundtrip', () => {
+    const data = {
+      destination: paris,
+      origins: [paris, { ...paris, name: 'Alice' }],
+      locations: [paris, london],
+    };
+    expect(parseProximityJson(serializeProximity(data))).toEqual({ ok: true, data });
+  });
   it('writes destination and location nodes with lat/lon', () => {
     const json = serializeProximity({ destination: paris, locations: [london] });
     expect(JSON.parse(json)).toEqual({

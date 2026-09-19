@@ -9,7 +9,7 @@ export type PeerLeg = {
 };
 
 export type RankedCandidate<T extends { id: string }> = T & {
-  /** Worst peer: max km, or max duration when ranking by time. */
+  /** Longest trip's distance; maximum distance when travel times are incomplete. */
   km: number;
   durationSec?: number;
   totalKm: number;
@@ -86,6 +86,12 @@ function scoreCandidate<T extends Candidate>(
   let totalDuration = 0;
   let durationCount = 0;
   let error: RouteError | undefined;
+  const completeTimes =
+    peers.length > 0 &&
+    peers.every(
+      (peer) =>
+        !peer.error && typeof peer.durationSec === 'number' && Number.isFinite(peer.durationSec),
+    );
 
   for (const peer of peers) {
     if (peer.error && !error) error = peer.error;
@@ -94,14 +100,12 @@ function scoreCandidate<T extends Candidate>(
       totalDuration += peer.durationSec;
       durationCount += 1;
     }
-    const peerWorst = byTime
-      ? typeof peer.durationSec === 'number' && Number.isFinite(peer.durationSec)
-        ? peer.durationSec
-        : Infinity
-      : Number.isFinite(peer.km)
-        ? peer.km
-        : Infinity;
-    if (peerWorst >= currentWorst) {
+    const peerWorst =
+      byTime && completeTimes ? peer.durationSec! : Number.isFinite(peer.km) ? peer.km : Infinity;
+    if (
+      peerWorst > currentWorst ||
+      (peerWorst === currentWorst && peer.originId < (farthestOriginId ?? ''))
+    ) {
       currentWorst = peerWorst;
       farthestOriginId = peer.originId;
       worstKm = peer.km;
@@ -115,13 +119,12 @@ function scoreCandidate<T extends Candidate>(
   return {
     ...candidate,
     km: worstKm,
-    durationSec: Number.isFinite(worstDuration) ? worstDuration : undefined,
+    durationSec: completeTimes && Number.isFinite(worstDuration) ? worstDuration : undefined,
     totalKm,
-    totalDurationSec:
-      durationCount === peers.length && peers.length > 0 ? totalDuration : undefined,
+    totalDurationSec: completeTimes && durationCount === peers.length ? totalDuration : undefined,
     farthestOriginId,
     peers,
-    error,
+    error: error ?? (byTime && !completeTimes ? 'unknown' : undefined),
   };
 }
 

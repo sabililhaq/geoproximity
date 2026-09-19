@@ -1,5 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 
+async function editPeople(page: Page) {
+  const input = page.locator('[data-dest-input]');
+  if (!(await input.isVisible())) await page.locator('[data-people-toggle]').click();
+  return input;
+}
+
 async function stubNetwork(page: Page) {
   await page.route('https://nominatim.openstreetmap.org/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
@@ -30,7 +36,8 @@ test.beforeEach(async ({ page }) => {
 test('loads the bundled sample', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('option').first()).toBeVisible();
-  await expect(page.getByText('Jalan Braga')).toBeVisible();
+  await expect(page.locator('[data-dest-current]')).toContainText('Jalan Braga');
+  await expect(page.locator('[data-people-toggle]')).toHaveText('1 personEdit');
   await expect(page.getByText('Warunk Upnormal')).toBeVisible();
 });
 
@@ -68,7 +75,7 @@ test('expands the mobile map and returns to the comparison', async ({ page }) =>
 test('adds another person without dropping the first starting point', async ({ page }) => {
   await page.goto('/');
   const people = page.locator('[data-dest-current]');
-  const input = page.locator('[data-dest-input]');
+  const input = await editPeople(page);
   const count = await page.getByRole('option').count();
   await expect(input).toBeVisible();
   await expect(people).toContainText('Jalan Braga');
@@ -113,10 +120,15 @@ for (const viewport of [
       const y = divider.y + divider.height / 2;
       await page.mouse.move(x, y);
       await page.mouse.down();
-      await page.mouse.move(x, y - 40, { steps: 5 });
+      const vertical = await page
+        .locator('.px-resizer')
+        .evaluate((el) => getComputedStyle(el).cursor === 'row-resize');
+      await page.mouse.move(vertical ? x : x - 40, vertical ? y - 40 : y, { steps: 5 });
       await page.mouse.up();
       // Short landscape screens reach the map's minimum height before the full drag.
-      expect((await sidebar.boundingBox())!.height).toBeGreaterThan(before.height + 10);
+      const after = (await sidebar.boundingBox())!;
+      if (vertical) expect(after.height).toBeGreaterThan(before.height + 10);
+      else expect(after.width).toBeLessThan(before.width - 10);
     }
   });
 }
@@ -171,13 +183,15 @@ for (const width of [320, 390, 844, 1280]) {
   test(`multi-peer details fit the sidebar at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
     await page.goto('/');
-    const input = page.locator('[data-dest-input]');
+    const input = await editPeople(page);
     for (const coordinates of ['-6.88, 107.61', '-6.92, 107.55']) {
       await input.fill(coordinates);
       await input.press('Enter');
     }
     const row = page.getByRole('option').first();
     await row.click();
+    await expect(row.locator('.px-peer-list')).toBeHidden();
+    await row.locator('.px-trip-details summary').click();
     await expect(row.locator('.px-peer-list li')).toHaveCount(3);
     const layout = await row.evaluate((element) => {
       const sidebar = element.closest('.px-sidebar-body')!;
@@ -219,26 +233,31 @@ for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/');
-    const input = page.locator('[data-dest-input]');
+    const input = await editPeople(page);
     await input.fill('-6.88, 107.61');
     await input.press('Enter');
     await page.getByRole('option').first().click();
     await expect(page.locator('.px-hint')).toHaveText('Tap the selected place again to clear');
     const popup = page.locator('.leaflet-popup-content');
-    await expect(popup).toBeVisible();
-    await expect(popup).not.toContainText('total');
-    await expect
-      .poll(async () => {
-        const box = (await popup.boundingBox())!;
-        const map = (await page.locator('.px-map-wrap').boundingBox())!;
-        return (
-          box.x >= map.x &&
-          box.x + box.width <= map.x + map.width &&
-          box.y >= map.y + 72 &&
-          box.y + box.height <= map.y + map.height
-        );
-      })
-      .toBe(true);
+    if (width === 320) {
+      await expect(popup).toHaveCount(0);
+      await expect(page.locator('.px-row.is-selected .px-row-dist')).toBeVisible();
+    } else {
+      await expect(popup).toBeVisible();
+      await expect(popup).not.toContainText('total');
+      await expect
+        .poll(async () => {
+          const box = (await popup.boundingBox())!;
+          const map = (await page.locator('.px-map-wrap').boundingBox())!;
+          return (
+            box.x >= map.x &&
+            box.x + box.width <= map.x + map.width &&
+            box.y >= map.y + 72 &&
+            box.y + box.height <= map.y + map.height
+          );
+        })
+        .toBe(true);
+    }
     const colors = await page
       .getByRole('button', { name: 'Driving', exact: true })
       .evaluate((button) => {
@@ -256,7 +275,7 @@ for (const width of [320, 390]) {
 test('mobile people summary frees space and can be edited again', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  const input = page.locator('[data-dest-input]');
+  const input = await editPeople(page);
   await input.fill('-6.88, 107.61');
   await input.press('Enter');
   const editor = page.locator('.px-people-editor');
@@ -275,8 +294,10 @@ test('mobile people summary frees space and can be edited again', async ({ page 
   await toggle.click();
   await expect(editor).toBeHidden();
   await page.setViewportSize({ width: 1024, height: 768 });
+  await expect(editor).toBeHidden();
+  await expect(toggle).toBeVisible();
+  await toggle.click();
   await expect(editor).toBeVisible();
-  await expect(toggle).toBeHidden();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Clear all locations' }).click();
   await expect(input).toBeVisible();
@@ -317,6 +338,7 @@ test('people labels match the map and names can be edited with buttons', async (
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#px2=-6.88,107.61,North;-6.92,107.55,West|-6.9,107.6,Venue|');
   await expect(page.locator('.leaflet-marker-icon .px-person-badge')).toHaveText(['A', 'B']);
+  await editPeople(page);
   await page.getByRole('button', { name: 'Rename North', exact: true }).click();
   const person = page.getByRole('textbox', { name: 'Rename North', exact: true });
   await person.fill('Home');

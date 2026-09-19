@@ -25,7 +25,9 @@ Add everyone under **Where we are**, then the candidate venues under **Places to
 
 With one person, places are ranked by distance to that person — the travel-hub case.
 
-With several people, places are ranked by the unlucky trip (the farthest person), then by total travel. Select a place to see each person's distance. The ranking is a hint; the map is how you decide.
+With several people, places are ranked by the farthest person for straight-line distance, or the longest trip for driving and walking, then by total travel. Select a place to highlight its routes; open **Trip details** to see each person's journey. The ranking is a hint; the map is how you decide.
+
+People can share a starting point, and a meeting place can be at someone's starting point. Loaded comparisons keep the people section collapsed; choose **Edit** to add or change people. On phones the map sits above the comparison, switching to a side-by-side layout in short landscape viewports.
 
 ### Choosing a restaurant
 

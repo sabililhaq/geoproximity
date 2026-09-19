@@ -80,7 +80,8 @@ for (const reverse of [false, true]) {
       if (byTime) {
         expect(ranked[1].durationSec).toBeUndefined();
         expect(ranked[1].totalDurationSec).toBeUndefined();
-        expect(ranked[1].farthestOriginId).toBe('north');
+        expect(ranked[1].farthestOriginId).toBe('west');
+        expect(ranked[1].km).toBe(2);
       }
     }
     // A missing time without an explicit network error is still incomplete.
@@ -90,3 +91,22 @@ for (const reverse of [false, true]) {
     expect(ranked[1].durationSec).toBeUndefined();
   });
 }
+
+it('ranks unavailable routes by the maximum fallback distance regardless of person order', () => {
+  const legs = new Map<string, PeerLeg>([
+    ['north|cafe-n', { originId: 'north', km: 1, error: 'network' }],
+    ['west|cafe-n', { originId: 'west', km: 9, error: 'network' }],
+    ['north|cafe-m', { originId: 'north', km: 5, error: 'network' }],
+    ['west|cafe-m', { originId: 'west', km: 4, error: 'network' }],
+  ]);
+  for (const origins of [
+    [north, west],
+    [west, north],
+  ]) {
+    const ranked = rankCandidates([cafeNearNorth, cafeMiddle], origins, legs, true);
+    expect(ranked.map((place) => place.id)).toEqual(['cafe-m', 'cafe-n']);
+    expect(ranked[0].km).toBe(5);
+    expect(ranked[0].totalKm).toBe(9);
+    expect(ranked[0].durationSec).toBeUndefined();
+  }
+});

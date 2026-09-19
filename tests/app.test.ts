@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { mountProximity } from '../src/mount';
+import { mountProximity, invalidateProximity } from '../src/mount';
 
 const dest = { name: 'Paris', lat: 48.8566, lon: 2.3522 };
 const london = { name: 'London', lat: 51.5074, lon: -0.1278 };
@@ -89,6 +89,9 @@ describe('popup content', () => {
     });
     cleanups.push(stop);
 
+    const map = root.querySelector('[data-px-map]')!;
+    Object.defineProperties(map, { clientHeight: { value: 600 }, clientWidth: { value: 800 } });
+    invalidateProximity(root);
     const marker = root.querySelector<HTMLElement>('.px-marker-num');
     expect(marker).not.toBeNull();
     const icon = marker!.closest('.leaflet-marker-icon');
@@ -185,7 +188,7 @@ describe('group ranking', () => {
     expect(rows(root)[0]!.querySelector('.px-peer-list')).toBeNull();
     expect(root.querySelector('[data-dest-current]')?.textContent).toContain('North');
     expect(root.querySelector('[data-dest-current]')?.textContent).toContain('West');
-    expect(rows(root)[0]!.querySelector('.px-row-dist')?.textContent).toMatch(/farthest/);
+    expect(rows(root)[0]!.querySelector('.px-row-dist')?.textContent).toMatch(/Farthest:/);
 
     rows(root)[0]!.click();
     expect(rows(root)[0]!.classList.contains('is-selected')).toBe(true);
@@ -214,7 +217,7 @@ describe('group ranking', () => {
     );
   });
 
-  it('shows the farthest peer and total travel on grouped rows', () => {
+  it('keeps one metric on grouped rows and puts totals inside closed trip details', () => {
     const { root, stop } = mountWithHash({
       origins: [
         { name: 'North', lat: -6.88, lon: 107.61 },
@@ -227,9 +230,11 @@ describe('group ranking', () => {
     });
     cleanups.push(stop);
 
-    const meta = rows(root)[0]?.querySelector('.px-row-meta');
-    expect(meta).not.toBeNull();
-    expect(meta?.textContent).toMatch(/Farthest:|Total:/);
+    expect(rows(root)[0]?.querySelector('.px-row-meta')).toBeNull();
+    rows(root)[0]!.click();
+    const details = rows(root)[0]!.querySelector<HTMLDetailsElement>('.px-trip-details');
+    expect(details?.open).toBe(false);
+    expect(details?.querySelector('.px-trip-total')?.textContent).toMatch(/Total distance:/);
   });
 });
 

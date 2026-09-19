@@ -43,8 +43,9 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 						<button type="button" data-route-mode="driving" aria-pressed="false">${esc(t.driving)}</button>
 						<button type="button" data-route-mode="walking" aria-pressed="false">${esc(t.walking)}</button>
 					</div>
-				</div>
-					<p data-loc-empty class="px-list-empty">${esc(t.locEmpty)}</p>
+					</div>
+						<p data-loc-empty class="px-list-empty">${esc(t.locEmpty)}</p>
+                        <p data-route-status class="px-route-status" role="status" hidden></p>
 					<ul data-loc-list class="px-list" role="listbox" aria-label="${esc(t.rankedLocations)}" hidden></ul>
 				</section>
 				<details class="px-advanced">

@@ -119,6 +119,7 @@ export function startProximity(
   const ioStatus = qs(root, '[data-io-status]');
   const hint = qs(root, '[data-px-hint]');
   const routeRetry = qs<HTMLButtonElement>(root, '[data-route-retry]');
+  const routeStatus = qs(root, '[data-route-status]');
   const empty = qs(root, '[data-px-empty]');
   const routeModeButtons = Array.from(
     root.querySelectorAll<HTMLButtonElement>('[data-route-mode]'),
@@ -138,8 +139,7 @@ export function startProximity(
   let distanceAbort: AbortController | null = null;
   let selectionAbort: AbortController | null = null;
   let lastRankAnnouncement = '';
-  const LABEL_ZOOM = 13;
-  let labelsPermanent = false;
+  let detailsLocationId: string | null = null;
   let overlayMarkers = new Map<string, L.Marker>();
   /** Driving/walking default to time; straight-line always ranks by distance. */
   const state: ProximityState = {
@@ -170,7 +170,7 @@ export function startProximity(
       (peopleCollapsed ? peopleToggle.dataset.edit : peopleToggle.dataset.done) ?? '';
   }
   function collapsePeople() {
-    if (host.clientWidth >= 768 || state.origins.length === 0) return;
+    if (state.origins.length === 0) return;
     peopleCollapsed = true;
     syncPeople();
   }
@@ -266,7 +266,7 @@ export function startProximity(
         const newSize = Math.min(maxSize, Math.max(Math.min(200, maxSize), startSize + delta));
         layout.style.setProperty('--px-sidebar-h', `${newSize}px`);
       } else {
-        const newSize = Math.max(200, startSize + delta);
+        const newSize = Math.min(layout.clientWidth - 220, Math.max(240, startSize + delta));
         layout.style.setProperty('--px-sidebar-w', `${newSize}px`);
       }
       map.invalidateSize();
@@ -396,14 +396,6 @@ export function startProximity(
     return state.origins.length > 1;
   }
 
-  function calculatingGroup(): boolean {
-    return isGroup() && state.locations.length > 1;
-  }
-
-  function calculatingHint(): string {
-    return 'Multi-peer mode, calculating distances';
-  }
-
   function placeMetricLabel(place: RankedPlace): string {
     if (!Number.isFinite(place.km)) return '';
     const dist = `${place.error ? '≈ ' : ''}${formatDistance(place.km)}`;
@@ -412,17 +404,9 @@ export function startProximity(
         ? formatDuration(place.durationSec)
         : '';
     if (isGroup()) {
-      if (byTime() && !time) return 'Travel time incomplete';
-      const farthest = time ? `${time} · ${dist}` : dist;
-      const total =
-        byTime() &&
-        typeof place.totalDurationSec === 'number' &&
-        Number.isFinite(place.totalDurationSec)
-          ? `${formatDuration(place.totalDurationSec)} total`
-          : Number.isFinite(place.totalKm)
-            ? `${formatDistance(place.totalKm)} total`
-            : '';
-      return total ? `${farthest} farthest · ${total}` : `${farthest} farthest`;
+      if (isLoadingDistances) return '—';
+      if (byTime()) return time ? `Longest trip: ${time}` : `Farthest: ${dist} · time unavailable`;
+      return `Farthest: ${dist}`;
     }
     if (time) return `${time} · ${dist}`;
     return dist;
@@ -541,7 +525,15 @@ export function startProximity(
 
   function render() {
     selectionAbort?.abort();
-    if (state.distanceMode !== 'straight') {
+    distanceAbort?.abort();
+    distanceAbort = null;
+    isLoadingDistances = false;
+    host.classList.remove('is-routing');
+    if (
+      state.distanceMode !== 'straight' &&
+      state.origins.length > 0 &&
+      state.locations.length > 0
+    ) {
       void renderAsync();
       return;
     }
@@ -602,14 +594,10 @@ export function startProximity(
     const { signal } = controller;
 
     isLoadingDistances = true;
-    for (const btn of routeModeButtons) {
-      btn.disabled = true;
-    }
     host.classList.add('is-routing');
-    hint.hidden = false;
-    hint.textContent = calculatingGroup()
-      ? calculatingHint()
-      : `Fetching ${modeLabel(state.distanceMode)} routes…`;
+    routeRetry.hidden = true;
+    // Render current inputs immediately; don't present previous-mode values as new results.
+    doRender(rankedLocations());
 
     try {
       const ranked = await rankedLocationsAsync(signal);
@@ -626,16 +614,14 @@ export function startProximity(
       routeRetry.hidden = fallback === 0;
       isLoadingDistances = false;
       host.classList.remove('is-routing');
-      for (const btn of routeModeButtons) {
-        btn.disabled = false;
-      }
       doRender(ranked);
       await fillRouteGeometries(ranked, signal);
     } catch {
       if (!signal.aborted) {
         const label = modeLabel(state.distanceMode);
         const message = `Could not fetch ${label} routes · showing straight-line distance`;
-        hint.textContent = message;
+        isLoadingDistances = false;
+        doRender(rankedLocations().map((place) => ({ ...place, error: 'network' })));
         showStatus(message);
         routeRetry.hidden = false;
       }
@@ -644,9 +630,8 @@ export function startProximity(
         isLoadingDistances = false;
         distanceAbort = null;
         host.classList.remove('is-routing');
-        for (const btn of routeModeButtons) {
-          btn.disabled = false;
-        }
+        routeStatus.hidden = true;
+        locList.setAttribute('aria-busy', 'false');
       }
     }
   }
@@ -675,8 +660,8 @@ export function startProximity(
       // Leave room above the venue for its popup as well as the map controls.
       const height = map.getSize().y;
       map.fitBounds(L.latLngBounds(points), {
-        paddingTopLeft: [48, Math.min(160, height * 0.55)],
-        paddingBottomRight: [48, Math.min(60, height * 0.2)],
+        paddingTopLeft: [36, height >= 280 ? 100 : 32],
+        paddingBottomRight: [36, Math.min(40, height * 0.12)],
         maxZoom: 14,
         animate: false,
       });
@@ -689,7 +674,7 @@ export function startProximity(
     } else {
       map.setView([place.lat, place.lon], Math.max(map.getZoom(), 13));
     }
-    markers.get(place.id)?.openPopup();
+    if (map.getSize().y >= 280) markers.get(place.id)?.openPopup();
   }
 
   function selectLocation(placeId: string, ranked: RankedPlace[], selectOpts?: { fit?: boolean }) {
@@ -697,10 +682,11 @@ export function startProximity(
     collapsePeople();
     const nextId = selectedLocationId === placeId ? null : placeId;
     selectedLocationId = nextId;
+    if (detailsLocationId !== nextId) detailsLocationId = null;
     doRender(ranked, {
       fitSelection: Boolean(selectOpts?.fit && nextId),
     });
-    if (nextId && state.distanceMode !== 'straight') {
+    if (nextId && state.distanceMode !== 'straight' && !isLoadingDistances) {
       selectionAbort = new AbortController();
       void fillRouteGeometries(ranked, selectionAbort.signal);
     }
@@ -738,7 +724,11 @@ export function startProximity(
       walkingAttributionShown = walking;
     }
 
-    labelsPermanent = map.getZoom() >= LABEL_ZOOM;
+    routeStatus.hidden = !isLoadingDistances;
+    routeStatus.textContent = isLoadingDistances
+      ? `Calculating ${modeLabel(state.distanceMode)} trips…`
+      : '';
+    locList.setAttribute('aria-busy', String(isLoadingDistances));
     overlay.clearLayers();
     const markers = new Map<string, L.Marker>();
     overlayMarkers = markers;
@@ -784,37 +774,39 @@ export function startProximity(
           `Starting point${group ? ` ${personLabel(originIndex)}` : ''}, ${origin.name}`,
         );
       }
-      if (labelsPermanent) {
-        originMarker.bindTooltip(popupContent(origin.name), {
-          direction: 'right',
-          offset: [14, 0],
-          permanent: true,
-          className: 'px-place-label',
-          opacity: 0.95,
-        });
-      }
+      originMarker.bindTooltip(popupContent(origin.name), {
+        direction: 'right',
+        offset: [14, 0],
+        permanent: false,
+        className: 'px-place-label',
+        opacity: 0.95,
+      });
       markers.set(origin.id, originMarker);
 
       const card = document.createElement('div');
       card.className = 'px-dest-card has-place';
       const copy = document.createElement('div');
       copy.className = 'px-dest-copy';
-      const title = document.createElement('strong');
+      const title = document.createElement('button');
+      title.type = 'button';
+      title.className = 'px-origin-name';
+      title.setAttribute('aria-label', `Show ${origin.name} on map`);
       title.textContent = origin.name;
       title.title = 'Double-click to rename';
       title.addEventListener('dblclick', (event) => beginRename(origin, title, event));
       const meta = document.createElement('span');
+      meta.className = 'px-origin-coordinates';
+      meta.hidden = true;
       meta.textContent = `${origin.lat.toFixed(4)}, ${origin.lon.toFixed(4)}`;
-      copy.append(title, meta);
+      copy.append(title);
       if (group) {
         const badge = document.createElement('span');
         badge.className = 'px-person-badge';
         badge.textContent = personLabel(originIndex);
         copy.prepend(badge);
       }
-      copy.append(renameButton(origin, title));
-      copy.title = 'Show on map';
-      copy.addEventListener('click', () => focusPlace(origin));
+      copy.append(renameButton(origin, title), meta);
+      title.addEventListener('click', () => focusPlace(origin));
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'px-dest-remove';
@@ -838,22 +830,6 @@ export function startProximity(
     for (const [index, place] of ranked.entries()) {
       const kmLabel = placeMetricLabel(place);
       const isSelected = place.id === selectedLocationId;
-      const farthestLabel =
-        Number.isFinite(place.km) && !place.error
-          ? `${formatDistance(place.km)}`
-          : Number.isFinite(place.km)
-            ? `≈ ${formatDistance(place.km)}`
-            : '—';
-      const totalLabel =
-        Number.isFinite(place.totalKm) && !place.error
-          ? `${formatDistance(place.totalKm)}`
-          : Number.isFinite(place.totalKm)
-            ? `≈ ${formatDistance(place.totalKm)}`
-            : '—';
-      const groupMeta =
-        group && (Number.isFinite(place.km) || Number.isFinite(place.totalKm))
-          ? `Farthest: ${farthestLabel} · Total: ${totalLabel}`
-          : '';
       const locMarker = L.marker([place.lat, place.lon], {
         icon: locIcon(index + 1, isSelected),
         zIndexOffset: isSelected ? 550 : 400,
@@ -861,11 +837,7 @@ export function startProximity(
         draggable: true,
       })
         .bindPopup(
-          popupContent(
-            Number.isFinite(place.km)
-              ? `${place.name} · ${place.error ? '≈ ' : ''}${formatDistance(place.km)}${group ? ' farthest' : ''}`
-              : place.name,
-          ),
+          popupContent(Number.isFinite(place.km) ? `${place.name} · ${kmLabel}` : place.name),
           {
             maxWidth: 220,
             keepInView: true,
@@ -878,8 +850,10 @@ export function startProximity(
         })
         .on('dragend', (event) => {
           const point = event.target.getLatLng();
-          place.lat = point.lat;
-          place.lon = point.lng;
+          const stored = state.locations.find((item) => item.id === place.id);
+          if (!stored) return;
+          stored.lat = point.lat;
+          stored.lon = point.lng;
           clearRouteCache();
           render();
           showStatus(`Moved ${place.name}.`);
@@ -895,11 +869,11 @@ export function startProximity(
             : `${place.name}, rank ${index + 1}`,
         );
       }
-      if (labelsPermanent) {
+      if (!isSelected) {
         locMarker.bindTooltip(popupContent(place.name), {
           direction: 'right',
           offset: [14, 0],
-          permanent: true,
+          permanent: false,
           className: 'px-place-label',
           opacity: 0.95,
         });
@@ -974,7 +948,7 @@ export function startProximity(
       name.addEventListener('dblclick', (event) => beginRename(place, name, event));
       const dist = document.createElement('span');
       dist.className = place.error ? 'px-row-dist is-approx' : 'px-row-dist';
-      dist.textContent = kmLabel || '—';
+      dist.textContent = isLoadingDistances ? '—' : kmLabel || '—';
       if (place.error) {
         dist.title =
           place.error === 'no_route'
@@ -999,7 +973,11 @@ export function startProximity(
         showUndo(`Removed ${place.name}.`, snap);
       });
       row.addEventListener('click', (event) => {
-        if (event.detail > 1) return;
+        if (
+          event.detail > 1 ||
+          (event.target instanceof Element && event.target.closest('button, input, details'))
+        )
+          return;
         selectLocation(place.id, ranked, { fit: true });
       });
       // Keyboard handling lives on the list (one listener, bubbling), so
@@ -1012,13 +990,18 @@ export function startProximity(
       const body = document.createElement('div');
       body.className = 'px-row-body';
       body.append(name);
-      if (group) {
-        const meta = document.createElement('span');
-        meta.className = 'px-row-meta';
-        meta.textContent = groupMeta;
-        body.append(dist, meta);
-      }
-      if (group && isSelected && place.peers.length > 0) {
+      if (group) body.append(dist);
+      if (group && isSelected && place.peers.length > 0 && !isLoadingDistances) {
+        const details = document.createElement('details');
+        details.className = 'px-trip-details';
+        details.open = detailsLocationId === place.id;
+        const summary = document.createElement('summary');
+        summary.textContent = 'Trip details';
+        details.append(summary);
+        details.addEventListener('toggle', () => {
+          if (!details.isConnected) return;
+          detailsLocationId = details.open ? place.id : null;
+        });
         const peers = document.createElement('ul');
         peers.className = 'px-peer-list';
         for (const peer of place.peers) {
@@ -1043,7 +1026,14 @@ export function startProximity(
           );
           peers.append(li);
         }
-        body.append(peers);
+        const total = document.createElement('p');
+        total.className = 'px-trip-total';
+        total.textContent =
+          byTime() && place.totalDurationSec !== undefined
+            ? `Total travel: ${formatDuration(place.totalDurationSec)}`
+            : `Total distance: ${place.error ? '≈ ' : ''}${formatDistance(place.totalKm)}`;
+        details.append(peers, total);
+        body.append(details);
       }
       if (isSelected) body.append(renameButton(place, name));
       if (group) row.append(rank, body, remove);
@@ -1055,10 +1045,18 @@ export function startProximity(
           const scroller = row.closest<HTMLElement>('.px-sidebar-body');
           if (!scroller || !row.isConnected) return;
           const panel = scroller.getBoundingClientRect();
+          // Keep a neighbouring option in view when the compact selection fits.
+          const nextRect = row.nextElementSibling?.getBoundingClientRect();
+          const bottom =
+            detailsLocationId !== place.id &&
+            nextRect &&
+            nextRect.bottom - rowRect.top <= panel.height
+              ? nextRect.bottom
+              : rowRect.bottom;
           if (rowRect.top < panel.top || rowRect.height > panel.height) {
             scroller.scrollTop += rowRect.top - panel.top;
-          } else if (rowRect.bottom > panel.bottom) {
-            scroller.scrollTop += rowRect.bottom - panel.bottom;
+          } else if (bottom > panel.bottom) {
+            scroller.scrollTop += bottom - panel.bottom;
           }
         });
       }
@@ -1077,9 +1075,7 @@ export function startProximity(
       ? ranked.find((place) => place.id === selectedLocationId)
       : undefined;
     if (isLoadingDistances) {
-      hint.textContent = calculatingGroup()
-        ? calculatingHint()
-        : `Fetching ${modeLabel(state.distanceMode)} routes…`;
+      hint.textContent = '';
     } else if (selected) {
       hint.textContent = 'Tap the selected place again to clear';
     } else if (state.origins.length > 0) {
@@ -1098,7 +1094,7 @@ export function startProximity(
     } else {
       hint.textContent = 'Click the map to add a starting point';
     }
-    hint.hidden = !hasNodes;
+    hint.hidden = !hasNodes || isLoadingDistances;
     host.classList.toggle('has-selection', Boolean(selected));
     empty.hidden = hasNodes;
     fitBtn.disabled = !hasNodes;
@@ -1122,7 +1118,9 @@ export function startProximity(
       const top = ranked[0]!;
       const metric = placeMetricLabel(top);
       const by = isGroup()
-        ? 'farthest person'
+        ? byTime()
+          ? 'longest trip'
+          : 'farthest person'
         : state.distanceMode === 'straight'
           ? 'distance'
           : 'time';
@@ -1233,6 +1231,7 @@ export function startProximity(
           ? [data.destination]
           : [];
     state.origins = originNodes.map((node) => ({ id: crypto.randomUUID(), ...node }));
+    peopleCollapsed = state.origins.length > 0;
     syncDestination();
     state.locations = data.locations.map((node) => ({
       id: crypto.randomUUID(),
@@ -1243,8 +1242,7 @@ export function startProximity(
   }
 
   function addOrigin(place: Place) {
-    if (state.origins.some((item) => samePlace(item, place))) return;
-    state.locations = state.locations.filter((item) => !samePlace(item, place));
+    peopleCollapsed = false;
     state.origins.push(place);
     syncDestination();
     render();
@@ -1294,14 +1292,20 @@ export function startProximity(
       }
     });
     input.addEventListener('blur', commit);
+    const coordinates = el
+      .closest('.px-dest-card')
+      ?.querySelector<HTMLElement>('.px-origin-coordinates');
+    if (coordinates) coordinates.hidden = false;
     el.replaceWith(input);
     input.focus();
     input.select();
   }
 
   function addLocation(place: Place) {
-    if (state.origins.some((item) => samePlace(item, place))) return;
-    if (state.locations.some((item) => samePlace(item, place))) return;
+    if (state.locations.some((item) => samePlace(item, place))) {
+      showStatus('This place is already in the comparison.');
+      return;
+    }
     state.locations.push(place);
     render();
     fit();
@@ -1466,7 +1470,6 @@ export function startProximity(
         const mode = btn.dataset.routeMode as DistanceMode;
         if (!mode) return;
         if (mode === state.distanceMode) return;
-        selectedLocationId = null;
         state.distanceMode = mode;
         render();
       },
@@ -1521,15 +1524,6 @@ export function startProximity(
   );
   motionQuery.addEventListener('change', applyRouteAnimation, {
     signal: session.signal,
-  });
-
-  map.on('zoomend', () => {
-    const next = map.getZoom() >= LABEL_ZOOM;
-    if (next === labelsPermanent) return;
-    if (state.origins.length > 0 || state.locations.length > 0) {
-      doRender(currentRanked.length ? currentRanked : rankedLocations());
-      if (selectedLocationId) overlayMarkers.get(selectedLocationId)?.openPopup();
-    }
   });
 
   map.on('click', (event: L.LeafletMouseEvent) => {

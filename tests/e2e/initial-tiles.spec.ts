@@ -21,7 +21,8 @@ for (const viewport of [
       });
     });
     await page.goto('/');
-    await expect(page.getByText('Jalan Braga')).toBeVisible();
+    await expect(page.locator('[data-dest-current]')).toContainText('Jalan Braga');
+    await expect(page.locator('[data-people-toggle]')).toHaveText('1 personEdit');
     await expect(page.locator('.leaflet-tile-loaded').first()).toBeVisible();
     const zooms = tileUrls.map((url) => Number(new URL(url).pathname.split('/')[2]));
     const origins = [...new Set(tileUrls.map((url) => new URL(url).origin))];

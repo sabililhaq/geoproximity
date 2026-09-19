@@ -597,17 +597,14 @@ summary:focus-visible,
 .px-dest-copy {
   min-width: 0;
   flex: 1 1 auto;
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
 }
 
-.px-dest-copy:hover strong {
+.px-origin-name:hover {
   color: var(--accent);
-}
-
-.px-dest-card strong {
-  display: block;
-  font-size: 0.92rem;
-  color: var(--px-title);
 }
 
 .px-dest-card span {
@@ -651,16 +648,6 @@ summary:focus-visible,
 .px-row-group .px-row-dist {
   display: block;
   margin-top: 0.2rem;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.px-row-meta {
-  display: block;
-  margin-top: 0.16rem;
-  color: var(--px-muted);
-  font-size: 0.72rem;
-  line-height: 1.35;
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -829,10 +816,6 @@ summary:focus-visible,
 .px-seg button[aria-disabled='true'] {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-[data-proximity].is-routing .px-seg {
-  opacity: 0.72;
 }
 
 [data-proximity].is-routing .px-hint {
@@ -1282,6 +1265,8 @@ summary:focus-visible,
 
 @container px (max-width: 767px) {
   .px-layout {
+    grid-template-areas: 'map' 'divider' 'aside';
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) 10px minmax(0, var(--px-sidebar-h));
   }
 
@@ -1401,6 +1386,32 @@ summary:focus-visible,
   }
 }
 
+@media (max-height: 500px) and (orientation: landscape) {
+  @container px (min-width: 560px) and (max-width: 767px) {
+    .px-layout {
+      grid-template-areas: 'aside divider map';
+      grid-template-columns: minmax(240px, min(var(--px-sidebar-w), 46%)) 6px minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .px-sidebar {
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .px-resizer {
+      cursor: col-resize;
+      padding: 0;
+    }
+
+    .px-resizer-handle {
+      width: 4px;
+      height: 48px;
+      margin: auto 1px;
+    }
+  }
+}
+
 [data-proximity].is-keyboard-open {
   height: 100%;
   will-change: transform;
@@ -1422,33 +1433,98 @@ summary:focus-visible,
   box-shadow: none;
 }
 
-.px-people-toggle {
+/* People can be collapsed on every screen, leaving more room for alternatives. */
+.px-people-toggle:not([hidden]) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--px-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.px-people-toggle [data-people-action] {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.px-people.is-collapsed .px-people-editor,
+.px-people-toggle:not([hidden]) + .px-people-editor > h2 {
   display: none;
 }
 
-@container px (max-width: 767px) {
-  .px-people-toggle:not([hidden]) {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    min-height: 44px;
-    padding: 0.5rem 0;
-    border: 0;
-    background: transparent;
-    color: var(--px-ink);
-    font: inherit;
-    cursor: pointer;
-  }
+.px-origin-name {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--px-title);
+  text-align: left;
+  font: inherit;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
 
-  .px-people-toggle [data-people-action] {
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
+.px-origin-coordinates {
+  flex-basis: 100%;
+}
 
-  .px-people.is-collapsed .px-people-editor {
-    display: none;
-  }
+.px-dest-card .px-origin-coordinates[hidden] {
+  display: none;
+}
+
+.px-trip-details {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  margin-top: 0.25rem;
+  color: var(--px-ink);
+  font-size: 0.78rem;
+}
+
+.px-trip-details summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 0.65rem 4rem 0.65rem 0;
+}
+
+.px-row-group .px-row-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.px-row-group .px-row-name,
+.px-row-group .px-row-dist {
+  grid-column: 1 / -1;
+}
+
+.px-row-group .px-row-body > .px-rename-button {
+  grid-column: 2;
+  grid-row: 3;
+  align-self: start;
+  position: relative;
+  margin-top: 0.25rem;
+}
+
+.px-trip-total,
+.px-route-status {
+  font-size: 0.75rem;
+  color: var(--px-muted);
+}
+
+.px-trip-total {
+  padding-top: 0.5rem;
+}
+
+.px-peer-list li {
+  padding: 0.2rem 0;
 }
 
 .px-person-badge,
