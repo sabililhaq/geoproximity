@@ -99,6 +99,7 @@ describe('popup content', () => {
     expect(icon?.getAttribute('aria-label')).toContain('rank 1');
     marker!.parentElement!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
+    root.querySelector<HTMLButtonElement>('.px-zoom-route')!.click();
     const popup = root.querySelector('.leaflet-popup-content');
     expect(popup).not.toBeNull();
     expect(popup!.querySelector('img')).toBeNull();
@@ -321,7 +322,7 @@ describe('inline rename', () => {
 });
 
 describe('bulk location paste', () => {
-  it('adds unique coordinate lines and reports the count', () => {
+  it('reviews unique coordinate lines before adding and reports the count', () => {
     const { root, stop } = mountWithHash({ destination: dest, locations: [] });
     cleanups.push(stop);
 
@@ -333,14 +334,14 @@ describe('bulk location paste', () => {
       },
     });
     input.dispatchEvent(event);
+    expect(rows(root)).toHaveLength(0);
+    root.querySelector<HTMLButtonElement>('.px-bulk-add')!.click();
 
     expect(rows(root).map((row) => row.querySelector('.px-row-name')!.textContent)).toEqual([
       '50.8503, 4.3517',
       '51.5074, -0.1278',
     ]);
-    expect(root.querySelector('[data-io-status]')?.textContent).toBe(
-      'Added 2 locations from pasted coordinates.',
-    );
+    expect(root.querySelector('[data-io-status]')?.textContent).toBe('Added 2 pasted places.');
   });
 });
 

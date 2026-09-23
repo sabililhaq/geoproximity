@@ -155,7 +155,8 @@ export function bindSearch(
     }
   };
 
-  const run = async () => {
+  const run = async (confirmCoordinates = false) => {
+    searchAbort?.abort();
     const query = input.value.trim();
     const seq = ++searchSeq;
     selectedResultIndex = -1;
@@ -167,6 +168,11 @@ export function bindSearch(
     const coords = parsePlaceInput(query);
     if (coords) {
       const name = `${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}`;
+      if (!confirmCoordinates) {
+        renderHits([{ name, shortName: name, lat: coords.lat, lon: coords.lon }]);
+        results.querySelector('strong')!.textContent = `Add ${name}`;
+        return;
+      }
       onPick({
         id: crypto.randomUUID(),
         name,
@@ -196,6 +202,10 @@ export function bindSearch(
     'input',
     () => {
       window.clearTimeout(timer);
+      searchAbort?.abort();
+      searchSeq++;
+      selectedResultIndex = -1;
+      hide();
       timer = window.setTimeout(() => void run(), 400);
     },
     { signal },
@@ -222,17 +232,12 @@ export function bindSearch(
         event.preventDefault();
         window.clearTimeout(timer);
         searchAbort?.abort();
-        for (const place of coordinates) {
-          onPick({
-            id: crypto.randomUUID(),
-            name: `${place.lat.toFixed(4)}, ${place.lon.toFixed(4)}`,
-            lat: place.lat,
-            lon: place.lon,
-          });
-        }
-        input.value = '';
-        hide();
-        onBulkNotice?.(`Added ${coordinates.length} locations from pasted coordinates.`);
+        renderBulkReview(
+          coordinates.map((place, index) => {
+            const name = `${place.lat.toFixed(4)}, ${place.lon.toFixed(4)}`;
+            return { input: lines[index]!, options: [{ name, shortName: name, ...place }] };
+          }),
+        );
         return;
       }
 
@@ -281,7 +286,7 @@ export function bindSearch(
     (event) => {
       event.preventDefault();
       window.clearTimeout(timer);
-      void run();
+      void run(true);
     },
     { signal },
   );
@@ -313,10 +318,11 @@ export function bindSearch(
           break;
         case 'Enter':
           e.preventDefault();
+          window.clearTimeout(timer);
           if (selectedResultIndex >= 0) {
             (items[selectedResultIndex] as HTMLElement).click();
           } else {
-            void run();
+            void run(true);
           }
           break;
       }

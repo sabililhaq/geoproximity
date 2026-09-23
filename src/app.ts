@@ -142,7 +142,6 @@ export function startProximity(
   let selectionAbort: AbortController | null = null;
   let lastRankAnnouncement = '';
   let detailsLocationId: string | null = null;
-  let overlayMarkers = new Map<string, L.Marker>();
   /** Driving/walking default to time; straight-line always ranks by distance. */
   const state: ProximityState = {
     destination: null,
@@ -246,12 +245,7 @@ export function startProximity(
   const resize = new ResizeObserver(() => {
     host.classList.toggle('is-map-compact', mapEl.clientHeight < 240);
     map.invalidateSize();
-    const selected = currentRanked.find((place) => place.id === selectedLocationId);
-    if (selected && mapEl.clientWidth > 0 && mapEl.clientHeight > 0) {
-      focusRoute(selected, state.destination, overlayMarkers);
-    } else if (mapEl.clientWidth > 0 && mapEl.clientHeight > 0) {
-      fit(false);
-    }
+    if (mapEl.clientWidth > 0 && mapEl.clientHeight > 0) fit(false);
   });
   if (resizer && layout) {
     let isDragging = false;
@@ -383,7 +377,7 @@ export function startProximity(
       focusedId: keyboardFocusedRowId,
       onMove: (index, list) => focusRowByIndex(index, list),
       onActivate: (id, list) => {
-        selectLocation(id, list, { fit: true });
+        selectLocation(id, list);
         focusRow(id);
       },
       onEscape: () => {
@@ -453,6 +447,7 @@ export function startProximity(
   }
 
   function fit(force = true) {
+    map.stop();
     const points: L.LatLngExpression[] = [];
     for (const origin of state.origins) points.push([origin.lat, origin.lon]);
     for (const place of state.locations) points.push([place.lat, place.lon]);
@@ -572,7 +567,7 @@ export function startProximity(
       const id = ++scheduled;
       requestAnimationFrame(() => {
         if (id !== scheduled || signal.aborted) return;
-        doRender(currentRanked, { fitSelection: Boolean(selectedLocationId) });
+        doRender(currentRanked);
       });
     };
 
@@ -583,12 +578,12 @@ export function startProximity(
       if (pending.length === 0) return;
       await Promise.all(
         pending.map(async (place) => {
-          const route = await getNetworkDistance(place, dest, mode, signal);
+          const route = await getNetworkDistance(dest, place, mode, signal);
           if (signal.aborted || !route.geometry) return;
           place.geometry = route.geometry;
           const peer = place.peers[0];
           if (peer) peer.geometry = route.geometry;
-          if (route.durationSec != null) place.durationSec = route.durationSec;
+          // Keep matrix metrics together: geometry loading must not change ranking.
           redraw();
         }),
       );
@@ -695,21 +690,21 @@ export function startProximity(
         maxZoom: 14,
       });
     } else {
-      map.setView([place.lat, place.lon], Math.max(map.getZoom(), 13));
+      const points: L.LatLngExpression[] = [[place.lat, place.lon]];
+      if (dest) points.push([dest.lat, dest.lon]);
+      map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 14, animate: false });
     }
     if (map.getSize().y >= 280) markers.get(place.id)?.openPopup();
   }
 
-  function selectLocation(placeId: string, ranked: RankedPlace[], selectOpts?: { fit?: boolean }) {
+  function selectLocation(placeId: string, ranked: RankedPlace[]) {
     selectionAbort?.abort();
     collapsePeople();
     const nextId = selectedLocationId === placeId ? null : placeId;
     selectedLocationId = nextId;
     if (detailsLocationId !== nextId) detailsLocationId = null;
     syncPanelExpansion();
-    doRender(ranked, {
-      fitSelection: Boolean(selectOpts?.fit && nextId),
-    });
+    doRender(ranked);
     if (nextId && state.distanceMode !== 'straight' && !isLoadingDistances) {
       selectionAbort = new AbortController();
       void fillRouteGeometries(ranked, selectionAbort.signal);
@@ -724,7 +719,13 @@ export function startProximity(
     { signal: session.signal },
   );
 
-  function doRender(ranked: RankedPlace[], renderOpts?: { fitSelection?: boolean }) {
+  function doRender(ranked: RankedPlace[]) {
+    const details = locList.querySelector<HTMLDetailsElement>('.px-trip-details');
+    const refocusDetails = details?.querySelector('summary') === document.activeElement;
+    if (details)
+      detailsLocationId = details.open
+        ? details.closest<HTMLElement>('[data-place-id]')!.dataset.placeId!
+        : null;
     currentRanked = ranked;
     const dest = state.destination;
     const color = accentColor();
@@ -755,12 +756,13 @@ export function startProximity(
     locList.setAttribute('aria-busy', String(isLoadingDistances));
     overlay.clearLayers();
     const markers = new Map<string, L.Marker>();
-    overlayMarkers = markers;
     const selectedLines: L.Polyline[] = [];
     const hasSelection = Boolean(selectedLocationId);
 
     function focusPlace(place: Place) {
-      map.setView([place.lat, place.lon], Math.max(map.getZoom(), 13));
+      const points: L.LatLngExpression[] = [[place.lat, place.lon]];
+      if (dest) points.push([dest.lat, dest.lon]);
+      map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 14, animate: false });
       markers.get(place.id)?.openPopup();
     }
 
@@ -865,12 +867,13 @@ export function startProximity(
           {
             maxWidth: 220,
             keepInView: true,
+            autoPan: false,
             autoPanPaddingTopLeft: L.point(48, 72),
             autoPanPaddingBottomRight: L.point(12, 60),
           },
         )
         .on('click', () => {
-          selectLocation(place.id, ranked, { fit: true });
+          selectLocation(place.id, ranked);
         })
         .on('dragend', (event) => {
           const point = event.target.getLatLng();
@@ -939,7 +942,7 @@ export function startProximity(
         });
         line.on('click', (event) => {
           L.DomEvent.stopPropagation(event);
-          selectLocation(place.id, ranked, { fit: true });
+          selectLocation(place.id, ranked);
         });
         line.addTo(overlay);
         if (selected) selectedLines.push(line);
@@ -953,7 +956,7 @@ export function startProximity(
           }
         }
       } else if (dest) {
-        drawLeg(place, dest, place.geometry ?? place.peers[0]?.geometry, isSelected);
+        drawLeg(dest, place, place.geometry ?? place.peers[0]?.geometry, isSelected);
       }
 
       const row = document.createElement('li');
@@ -1002,7 +1005,7 @@ export function startProximity(
           (event.target instanceof Element && event.target.closest('button, input, details'))
         )
           return;
-        selectLocation(place.id, ranked, { fit: true });
+        selectLocation(place.id, ranked);
       });
       // Keyboard handling lives on the list (one listener, bubbling), so
       // rows only need to report focus.
@@ -1060,7 +1063,15 @@ export function startProximity(
         details.append(peers, total);
         body.append(details);
       }
-      if (isSelected) body.append(renameButton(place, name));
+      if (isSelected) {
+        body.append(renameButton(place, name));
+        const zoom = document.createElement('button');
+        zoom.type = 'button';
+        zoom.className = 'px-zoom-route';
+        zoom.textContent = 'Zoom to route';
+        zoom.addEventListener('click', () => focusRoute(place, dest, markers));
+        body.append(zoom);
+      }
       if (group) row.append(rank, body, remove);
       else row.append(rank, body, dist, remove);
       locList.append(row);
@@ -1088,10 +1099,10 @@ export function startProximity(
     }
 
     for (const line of selectedLines) line.bringToFront();
-
-    if (renderOpts?.fitSelection && selectedLocationId) {
-      const selected = ranked.find((place) => place.id === selectedLocationId);
-      if (selected) focusRoute(selected, dest, markers);
+    if (refocusDetails) {
+      locList
+        .querySelector<HTMLElement>('.px-trip-details summary')
+        ?.focus({ preventScroll: true });
     }
 
     const hasNodes = state.origins.length > 0 || state.locations.length > 0;

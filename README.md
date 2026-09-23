@@ -25,7 +25,7 @@ Add everyone under **Where we are**, then the candidate venues under **Places to
 
 With one person, places are ranked by distance to that person — the travel-hub case.
 
-With several people, places are ranked by the farthest person for straight-line distance, or the longest trip for driving and walking, then by total travel. Select a place to highlight its routes; open **Trip details** to see each person's journey. The ranking is a hint; the map is how you decide.
+With several people, places are ranked by the farthest person for straight-line distance, or the longest trip for driving and walking, then by total travel. Select a place to highlight its routes while keeping the comparison overview. Choose **Zoom to route** for a closer view, or open **Trip details** to see each person's journey. The ranking is a hint; the map is how you decide.
 
 People can share a starting point, and a meeting place can be at someone's starting point. Loaded comparisons keep the people section collapsed; choose **Edit** to add or change people. On phones the map sits above the comparison, switching to a side-by-side layout in short landscape viewports.
 
@@ -111,6 +111,8 @@ Geoproximity supports three distance modes:
 * **Driving** — road distance returned by the OSRM routing service
 * **Walking** — walking route distance returned by the FOSSGIS pedestrian OSRM service
 
+Routes run from each person under **Where we are** to each candidate under **Places to compare**, for both solo and group comparisons.
+
 Driving and walking modes also draw the returned route geometry on the map, show travel time next to distance, and rank by time. Comparisons with unavailable routes follow complete results. Times are typical uncongested estimates from the router, not live traffic. **Advanced settings** holds an **Animate routes** switch that flows dashes along those routes, and **Reverse direction** to run the flow from destination toward locations instead. Both are unavailable for straight-line distance and stay off when the system prefers reduced motion. Walking uses the dedicated `routing.openstreetmap.de/routed-foot` backend, with requests limited to one per second. Routing requests run in the browser, so they depend on the external routing service and may fall back to straight-line estimates when a route cannot be fetched.
 
 ## Limitations
@@ -123,6 +125,8 @@ For better accuracy, paste coordinates or a Google Maps URL into the search box:
 latitude, longitude
 https://www.google.com/maps/@-6.9205,107.6099,17z
 ```
+
+Coordinates and supported Maps URLs show an **Add** preview; press Enter or choose that preview to confirm. Pasting several coordinate lines opens a review before adding them.
 
 The application also relies on external services for some functionality, so availability may occasionally be affected by external rate limits, particularly during high traffic.
 

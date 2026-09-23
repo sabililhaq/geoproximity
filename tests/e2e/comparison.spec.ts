@@ -278,3 +278,37 @@ for (const viewport of [
     await expect(page.locator('.px-peer-list')).toBeHidden();
   });
 }
+
+test('solo routing uses the same direction and matrix metrics after geometry loads', async ({
+  page,
+}) => {
+  const routes: string[] = [];
+  await page.route('https://router.project-osrm.org/**', (route) => {
+    const url = new URL(route.request().url());
+    const coordinates = url.pathname
+      .split('/')
+      .at(-1)!
+      .split(';')
+      .map((pair) => pair.split(',').map(Number));
+    if (url.pathname.includes('/table/')) {
+      expect(url.searchParams.get('sources')).toBe('0');
+      expect(url.searchParams.get('destinations')).toBe('1;2');
+      return route.fulfill({
+        json: { code: 'Ok', durations: [[60, 120]], distances: [[1000, 2000]] },
+      });
+    }
+    routes.push(url.pathname);
+    return route.fulfill({
+      json: { code: 'Ok', routes: [{ duration: 600, distance: 5000, geometry: { coordinates } }] },
+    });
+  });
+  await page.goto('/#px=-6.92,107.61,Start|-6.9,107.6,HubA;-6.91,107.58,HubB|');
+  await page.reload();
+  await drive(page);
+  await expect.poll(() => routes.length).toBe(2);
+  await expect(page.locator('.px-edge-routed')).not.toHaveCount(0);
+  expect(routes.every((path) => path.includes('/107.61,-6.92;'))).toBe(true);
+  await expect(rows(page).nth(0)).toContainText('HubA');
+  await expect(rows(page).nth(0)).toContainText('1 min · 1.0 km');
+  await expect(rows(page).nth(1)).toContainText('2 min · 2.0 km');
+});

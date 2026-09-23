@@ -243,6 +243,7 @@ for (const width of [320, 390]) {
       await expect(popup).toHaveCount(0);
       await expect(page.locator('.px-row.is-selected .px-row-dist')).toBeVisible();
     } else {
+      await page.getByRole('button', { name: 'Zoom to route', exact: true }).click();
       await expect(popup).toBeVisible();
       await expect(popup).not.toContainText('total');
       await expect
@@ -448,3 +449,43 @@ test('small phones frame the sample and provide usable touch targets', async ({ 
   await page.locator('.px-trip-details summary').click();
   await expect.poll(async () => (await panel.boundingBox())!.height).toBeGreaterThan(initial);
 });
+
+test('coordinates wait for confirmation and use the latest input', async ({ page }) => {
+  await page.goto('/');
+  const input = page.locator('[data-loc-input]');
+  const count = await page.getByRole('option').count();
+  await input.fill('-6.9, 107.6');
+  await expect(page.locator('[data-loc-results]')).toContainText('Add -6.9000, 107.6000');
+  await expect(page.getByRole('option')).toHaveCount(count);
+  await expect(input).toHaveValue('-6.9, 107.6');
+  await input.fill('-6.9, 107.61');
+  await input.press('Enter');
+  await expect(page.getByRole('option')).toHaveCount(count + 1);
+  await expect(page.locator('[data-loc-list]')).toContainText('-6.9000, 107.6100');
+  await input.fill('-6.8, 107.7');
+  await page.getByRole('button', { name: 'Add -6.8000, 107.7000', exact: true }).click();
+  await expect(page.getByRole('option')).toHaveCount(count + 2);
+});
+
+for (const width of [390, 1280]) {
+  test(`selection keeps the comparison overview at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/');
+    const positions = () =>
+      page.locator('.leaflet-marker-icon').evaluateAll((markers) =>
+        markers.map((m) => {
+          const r = m.getBoundingClientRect();
+          return [r.x, r.y];
+        }),
+      );
+    await expect(page.locator('.leaflet-marker-icon')).toHaveCount(5);
+    const before = await positions();
+    await page.getByRole('option').first().click();
+    await expect(page.locator('.px-row.is-selected')).toHaveCount(1);
+    expect(await positions()).toEqual(before);
+    await page.getByRole('button', { name: 'Zoom to route', exact: true }).click();
+    await expect.poll(positions).not.toEqual(before);
+    await page.locator('[data-fit]').click();
+    await expect.poll(positions).toEqual(before);
+  });
+}
