@@ -410,3 +410,41 @@ test('fetches pedestrian geometry when selecting a multi-person venue', async ({
   await expect(page.locator('.px-peer-list')).toContainText('North: 50 min');
   await expect(page.locator('.px-peer-list')).toContainText('West: 1 h');
 });
+
+test('small phones frame the sample and provide usable touch targets', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/');
+  await expect
+    .poll(() =>
+      page.locator('.leaflet-marker-icon').evaluateAll((markers) => {
+        const map = document.querySelector('[data-px-map]')!.getBoundingClientRect();
+        return (
+          markers.length === 5 &&
+          markers.every((marker) => {
+            const box = marker.getBoundingClientRect();
+            return (
+              box.left >= map.left &&
+              box.right <= map.right &&
+              box.top >= map.top &&
+              box.bottom <= map.bottom
+            );
+          })
+        );
+      }),
+    )
+    .toBe(true);
+  for (const button of await page.locator('[data-route-mode], .px-row-remove').all()) {
+    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+  const panel = page.locator('.px-sidebar');
+  const initial = (await panel.boundingBox())!.height;
+  await page.locator('[data-people-toggle]').click();
+  await expect.poll(async () => (await panel.boundingBox())!.height).toBeGreaterThan(initial);
+  await page.locator('[data-people-toggle]').click();
+  await expect.poll(async () => (await panel.boundingBox())!.height).toBeCloseTo(initial, 0);
+  await page.locator('.px-actions [data-sample]').click();
+  await page.getByRole('button', { name: 'Group meetup', exact: true }).click();
+  await page.getByRole('option').first().click();
+  await page.locator('.px-trip-details summary').click();
+  await expect.poll(async () => (await panel.boundingBox())!.height).toBeGreaterThan(initial);
+});

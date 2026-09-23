@@ -170,6 +170,14 @@ export function startProximity(
       `${state.origins.length} ${state.origins.length === 1 ? peopleToggle.dataset.person : peopleToggle.dataset.people}`;
     qs(root, '[data-people-action]').textContent =
       (peopleCollapsed ? peopleToggle.dataset.edit : peopleToggle.dataset.done) ?? '';
+    syncPanelExpansion();
+  }
+  function syncPanelExpansion() {
+    layout?.classList.toggle(
+      'is-panel-expanded',
+      (!peopleCollapsed && state.origins.length > 0) ||
+        (detailsLocationId !== null && detailsLocationId === selectedLocationId),
+    );
   }
   function collapsePeople() {
     if (state.origins.length === 0) return;
@@ -236,10 +244,13 @@ export function startProximity(
   });
 
   const resize = new ResizeObserver(() => {
+    host.classList.toggle('is-map-compact', mapEl.clientHeight < 240);
     map.invalidateSize();
     const selected = currentRanked.find((place) => place.id === selectedLocationId);
     if (selected && mapEl.clientWidth > 0 && mapEl.clientHeight > 0) {
       focusRoute(selected, state.destination, overlayMarkers);
+    } else if (mapEl.clientWidth > 0 && mapEl.clientHeight > 0) {
+      fit(false);
     }
   });
   if (resizer && layout) {
@@ -256,6 +267,10 @@ export function startProximity(
       startSize = isVertical
         ? layout.querySelector('.px-sidebar')?.getBoundingClientRect().height || 0
         : layout.querySelector('.px-sidebar')?.getBoundingClientRect().width || 0;
+      if (isVertical) {
+        layout.style.setProperty('--px-sidebar-h', `${startSize}px`);
+        layout.classList.remove('is-panel-expanded');
+      }
       e.preventDefault();
     });
 
@@ -263,7 +278,7 @@ export function startProximity(
       if (!isDragging) return;
       const delta = isVertical ? startPos - e.clientY : e.clientX - startPos;
       if (isVertical) {
-        const minMapSize = Math.min(220, layout.clientHeight * 0.35);
+        const minMapSize = Math.min(150, layout.clientHeight * 0.26);
         const maxSize = Math.max(0, layout.clientHeight - minMapSize - 10);
         const newSize = Math.min(maxSize, Math.max(Math.min(200, maxSize), startSize + delta));
         layout.style.setProperty('--px-sidebar-h', `${newSize}px`);
@@ -449,7 +464,13 @@ export function startProximity(
       map.setView(points[0], 8);
       return;
     }
-    map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 12 });
+    map.invalidateSize();
+    map.fitBounds(L.latLngBounds(points), {
+      paddingTopLeft: [36, Math.min(64, map.getSize().y * 0.3)],
+      paddingBottomRight: [36, Math.min(48, map.getSize().y * 0.22)],
+      maxZoom: 12,
+      animate: false,
+    });
   }
 
   function modeLabel(mode: DistanceMode): string {
@@ -685,6 +706,7 @@ export function startProximity(
     const nextId = selectedLocationId === placeId ? null : placeId;
     selectedLocationId = nextId;
     if (detailsLocationId !== nextId) detailsLocationId = null;
+    syncPanelExpansion();
     doRender(ranked, {
       fitSelection: Boolean(selectOpts?.fit && nextId),
     });
@@ -1003,6 +1025,7 @@ export function startProximity(
         details.addEventListener('toggle', () => {
           if (!details.isConnected) return;
           detailsLocationId = details.open ? place.id : null;
+          syncPanelExpansion();
         });
         const peers = document.createElement('ul');
         peers.className = 'px-peer-list';
