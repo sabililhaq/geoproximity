@@ -22,7 +22,7 @@ for (const width of [320, 1280]) {
     await rows(page).first().click();
     await page.locator('.px-trip-details summary').click();
     await expect(page.locator('.px-peer-list li')).toHaveCount(3);
-    await expect(page.locator('.px-peer-list')).toContainText('Alya');
+    await expect(page.locator('.px-peer-list')).toContainText('A · North Bandung');
     await page.reload();
     await expect(page.locator('[data-people-toggle]')).toHaveText('3 peopleEdit');
     await expect(rows(page)).toHaveCount(3);

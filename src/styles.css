@@ -783,7 +783,8 @@ summary:focus-visible,
 }
 
 .px-seg {
-  display: inline-flex;
+  display: flex;
+  width: 100%;
   padding: 2px;
   border: 1px solid var(--px-border);
   border-radius: 999px;
@@ -800,7 +801,7 @@ summary:focus-visible,
   border-radius: 999px;
   padding: 0.28rem 0.7rem;
   background: transparent;
-  flex: 1 1 0;
+  flex: 1 1 auto;
 }
 
 .px-row.is-selected .px-row-name {
@@ -1618,4 +1619,20 @@ summary:focus-visible,
 /* Keep the small map preview clear of the decorative interaction hint. */
 [data-proximity].is-map-compact:not(.is-routing) .px-hint {
   display: none;
+}
+
+.px-io-row > button:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 44px;
+  padding: 0.35rem 0.2rem;
+}
+
+.px-action-label {
+  font-size: 0.68rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }

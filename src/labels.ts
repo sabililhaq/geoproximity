@@ -37,6 +37,9 @@ export type UiLabels = {
   sampleButton: string;
   sampleDefault: string;
   sampleGroup: string;
+  shareButton?: string;
+  fitButton?: string;
+  clearButton?: string;
   share: string;
   fit: string;
   clear: string;
@@ -84,6 +87,9 @@ export const defaultLabels: UiLabels = {
   sampleButton: 'Sample',
   sampleDefault: 'Default sample',
   sampleGroup: 'Group meetup',
+  shareButton: 'Share',
+  fitButton: 'Fit all',
+  clearButton: 'Clear',
   share: 'Share this comparison',
   fit: 'Fit all items on the map',
   clear: 'Clear all locations',
