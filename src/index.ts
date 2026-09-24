@@ -7,3 +7,5 @@ export {
   type ProximityFile,
 } from './mount';
 export type { UiLabels } from './labels';
+
+export type { RouteDirection } from './types';

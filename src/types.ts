@@ -1,3 +1,5 @@
+export type RouteDirection = 'to-places' | 'from-places';
+
 export type DistanceMode = 'straight' | 'driving' | 'walking';
 
 export type Place = {
@@ -14,4 +16,6 @@ export type ProximityState = {
   origins: Place[];
   locations: Place[];
   distanceMode: DistanceMode;
+  /** Defaults to people → places for existing callers. */
+  routeDirection?: RouteDirection;
 };

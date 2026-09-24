@@ -111,9 +111,9 @@ Geoproximity supports three distance modes:
 * **Driving** — road distance returned by the OSRM routing service
 * **Walking** — walking route distance returned by the FOSSGIS pedestrian OSRM service
 
-Routes run from each person under **Where we are** to each candidate under **Places to compare**, for both solo and group comparisons.
+In driving and walking modes, **Travel direction** chooses **People → places** or **Places → destinations**. For drop-off hubs, choose **Places → destinations**, add your destination under **Where we’re going**, then add the candidate hubs under **Places to compare**. Direction affects road distance, time, route geometry, and ranking. Shared links and the saved comparison retain it; older links default to People → places. Straight-line distances are the same in either direction.
 
-Driving and walking modes also draw the returned route geometry on the map, show travel time next to distance, and rank by time. Comparisons with unavailable routes follow complete results. Times are typical uncongested estimates from the router, not live traffic. **Advanced settings** holds an **Animate routes** switch that flows dashes along those routes, and **Reverse direction** to run the flow from destination toward locations instead. Both are unavailable for straight-line distance and stay off when the system prefers reduced motion. Walking uses the dedicated `routing.openstreetmap.de/routed-foot` backend, with requests limited to one per second. Routing requests run in the browser, so they depend on the external routing service and may fall back to straight-line estimates when a route cannot be fetched.
+Driving and walking modes also draw the returned route geometry on the map, show travel time next to distance, and rank by time. Comparisons with unavailable routes follow complete results. Times are typical uncongested estimates from the router, not live traffic. **Advanced settings** holds an **Animate routes** switch that flows dashes along those routes, and **Reverse animation** to reverse the visual flow without changing travel direction. Both are unavailable for straight-line distance and stay off when the system prefers reduced motion. Walking uses the dedicated `routing.openstreetmap.de/routed-foot` backend, with requests limited to one per second. Routing requests run in the browser, so they depend on the external routing service and may fall back to straight-line estimates when a route cannot be fetched.
 
 ## Limitations
 
@@ -125,6 +125,8 @@ For better accuracy, paste coordinates or a Google Maps URL into the search box:
 latitude, longitude
 https://www.google.com/maps/@-6.9205,107.6099,17z
 ```
+
+Shortened Maps links and URLs without usable coordinates show guidance instead of being sent to the geocoder. Empty searches suggest a city name, coordinates, or placing a pin on the map.
 
 Coordinates and supported Maps URLs show an **Add** preview; press Enter or choose that preview to confirm. Pasting several coordinate lines opens a review before adding them.
 

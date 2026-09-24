@@ -405,8 +405,8 @@ test('fetches pedestrian geometry when selecting a multi-person venue', async ({
   });
   await page.goto('/#px2=-6.88,107.61,North;-6.92,107.55,West|-6.9,107.6,Venue|');
   await page.getByRole('button', { name: 'Walking', exact: true }).click();
-  await expect(page.getByRole('option')).toContainText('1 h');
-  await page.getByRole('option').click();
+  await expect(page.locator('[data-loc-list]').getByRole('option')).toContainText('1 h');
+  await page.locator('[data-loc-list]').getByRole('option').click();
   await expect(page.locator('.px-edge-routed.px-edge-highlight')).toHaveCount(2);
   await expect(page.locator('.px-peer-list')).toContainText('North: 50 min');
   await expect(page.locator('.px-peer-list')).toContainText('West: 1 h');
@@ -489,3 +489,51 @@ for (const width of [390, 1280]) {
     await expect.poll(positions).toEqual(before);
   });
 }
+
+test('unsupported links and missing places explain how to recover', async ({ page }) => {
+  await page.goto('/');
+  const queries: string[] = [];
+  page.on('request', (request) => {
+    if (/nominatim|photon/.test(request.url())) queries.push(request.url());
+  });
+  const input = page.locator('[data-loc-input]');
+  await input.fill('https://maps.app.goo.gl/example');
+  await input.press('Enter');
+  await expect(page.locator('[data-loc-results]')).toContainText(
+    'This link does not contain usable coordinates',
+  );
+  await expect(page.locator('[data-loc-results]')).toContainText('latitude and longitude');
+  expect(queries).toHaveLength(0);
+  await input.fill('Missing venue');
+  await input.press('Enter');
+  await expect(page.locator('[data-loc-results]')).toContainText('No results. Try adding the city');
+  await expect(page.locator('[data-loc-results]')).toContainText('click the map');
+});
+
+test('walking routes travel from the candidate to each destination when reversed', async ({
+  page,
+}) => {
+  const paths: string[] = [];
+  await page.route('https://routing.openstreetmap.de/routed-foot/**', (route) => {
+    const url = new URL(route.request().url());
+    paths.push(url.pathname);
+    const coordinates = url.pathname
+      .split('/')
+      .at(-1)!
+      .split(';')
+      .map((pair) => pair.split(',').map(Number));
+    return route.fulfill({
+      json: url.pathname.includes('/table/')
+        ? { code: 'Ok', distances: [[4000, 5000]], durations: [[3000, 3600]] }
+        : { code: 'Ok', routes: [{ distance: 5000, duration: 3600, geometry: { coordinates } }] },
+    });
+  });
+  await page.goto('/#px2=-6.88,107.61,North;-6.92,107.55,West|-6.9,107.6,Venue|w|r');
+  await expect(page.locator('[data-loc-list]')).toContainText('Longest trip: 1 h');
+  await page.locator('[data-loc-list]').getByRole('option').click();
+  await expect(page.locator('.px-edge-routed.px-edge-highlight')).toHaveCount(2);
+  expect(
+    paths.filter((path) => path.includes('/route/')).every((path) => path.includes('/107.6,-6.9;')),
+  ).toBe(true);
+  await expect(page.locator('[data-route-direction]')).toHaveValue('from-places');
+});

@@ -312,3 +312,134 @@ test('solo routing uses the same direction and matrix metrics after geometry loa
   await expect(rows(page).nth(0)).toContainText('1 min · 1.0 km');
   await expect(rows(page).nth(1)).toContainText('2 min · 2.0 km');
 });
+
+for (const group of [false, true]) {
+  test(`travel direction reverses ${group ? 'group' : 'solo'} routing and survives sharing`, async ({
+    page,
+  }) => {
+    const paths: string[] = [];
+    await page.route('https://router.project-osrm.org/**', (route) => {
+      const url = new URL(route.request().url());
+      paths.push(url.pathname + url.search);
+      const coordinates = url.pathname
+        .split('/')
+        .at(-1)!
+        .split(';')
+        .map((pair) => pair.split(',').map(Number));
+      const reverse = coordinates[0]![0] === 107.6;
+      return route.fulfill({
+        json: url.pathname.includes('/table/')
+          ? {
+              code: 'Ok',
+              durations: reverse
+                ? group
+                  ? [
+                      [60, 90],
+                      [900, 800],
+                    ]
+                  : [[60], [900]]
+                : group
+                  ? [
+                      [600, 120],
+                      [500, 180],
+                    ]
+                  : [[600, 120]],
+              distances: reverse
+                ? group
+                  ? [
+                      [1000, 1500],
+                      [9000, 8000],
+                    ]
+                  : [[1000], [9000]]
+                : group
+                  ? [
+                      [6000, 1200],
+                      [5000, 1800],
+                    ]
+                  : [[6000, 1200]],
+            }
+          : { code: 'Ok', routes: [{ distance: 2000, duration: 200, geometry: { coordinates } }] },
+      });
+    });
+    await page.goto(
+      group
+        ? '/#px2=-6.92,107.61,Home;-6.93,107.62,Hotel|-6.9,107.6,HubA;-6.91,107.58,HubB|'
+        : '/#px=-6.92,107.61,Home|-6.9,107.6,HubA;-6.91,107.58,HubB|',
+    );
+    await page.reload();
+    await drive(page);
+    await expect(rows(page).first()).toContainText('HubB');
+    await page.locator('[data-route-direction]').selectOption('from-places');
+    await expect(page.locator('[data-loc-list]')).toHaveAttribute('aria-busy', 'false');
+    await expect(rows(page).first()).toContainText('HubA');
+    await expect(rows(page).first()).toContainText(
+      group ? 'Longest trip: 2 min' : '1 min · 1.0 km',
+    );
+    await rows(page).first().click();
+    await expect
+      .poll(() =>
+        paths.some((path) => path.startsWith('/route/v1/driving/107.6,-6.9;107.61,-6.92')),
+      )
+      .toBe(true);
+    if (group)
+      await expect
+        .poll(() =>
+          paths.some((path) => path.startsWith('/route/v1/driving/107.6,-6.9;107.62,-6.93')),
+        )
+        .toBe(true);
+    await page.reload();
+    await expect(page.locator('[data-route-direction]')).toHaveValue('from-places');
+    await expect(rows(page).first()).toContainText('HubA');
+    await page.goto('/');
+    await page.reload();
+    await expect(page.locator('[data-route-direction]')).toHaveValue('from-places');
+    await expect(rows(page).first()).toContainText('HubA');
+    await page.locator('[data-route-direction]').selectOption('to-places');
+    await expect(rows(page).first()).toContainText('HubB');
+    await expect(page).not.toHaveURL(/\|r$/);
+  });
+}
+
+test('changing travel direction ignores a late response from the previous direction', async ({
+  page,
+}) => {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let pending = false;
+  await page.route('https://router.project-osrm.org/**', async (route) => {
+    const url = new URL(route.request().url());
+    const coordinates = url.pathname
+      .split('/')
+      .at(-1)!
+      .split(';')
+      .map((pair) => pair.split(',').map(Number));
+    const reverse = coordinates[0]![0] === 107.6;
+    if (url.pathname.includes('/table/') && reverse) {
+      pending = true;
+      await gate;
+    }
+    await route
+      .fulfill({
+        json: url.pathname.includes('/table/')
+          ? {
+              code: 'Ok',
+              durations: reverse ? [[900], [30]] : [[60, 120]],
+              distances: reverse ? [[9000], [300]] : [[1000, 2000]],
+            }
+          : { code: 'Ok', routes: [{ duration: 60, distance: 1000, geometry: { coordinates } }] },
+      })
+      .catch(() => {});
+  });
+  await page.goto('/#px=-6.92,107.61,Home|-6.9,107.6,HubA;-6.91,107.58,HubB|');
+  await page.reload();
+  await drive(page);
+  await page.locator('[data-route-direction]').selectOption('from-places');
+  await expect.poll(() => pending).toBe(true);
+  await page.locator('[data-route-direction]').selectOption('to-places');
+  release();
+  await expect(page.locator('[data-loc-list]')).toHaveAttribute('aria-busy', 'false');
+  await expect(rows(page).first()).toContainText('HubA');
+  await expect(page.locator('[data-route-direction]')).toHaveValue('to-places');
+});

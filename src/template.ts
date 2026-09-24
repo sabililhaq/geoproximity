@@ -16,7 +16,7 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 				<section class="px-section px-people" data-people>
 					<button type="button" class="px-people-toggle" data-people-toggle data-person="${esc(t.person)}" data-people="${esc(t.people)}" data-edit="${esc(t.editPeople)}" data-done="${esc(t.donePeople)}" aria-expanded="true" aria-controls="px-people-editor" hidden><span data-people-summary></span><span data-people-action>${esc(t.donePeople)}</span></button>
 					<div id="px-people-editor" class="px-section px-people-editor">
-					<h2>${esc(t.destination)}<span data-origin-count class="px-loc-count" aria-hidden="true"></span></h2>
+					<h2><span data-origin-label data-forward-label="${esc(t.destination)}" data-reverse-label="${esc(t.destinationPoints ?? 'Where we’re going')}">${esc(t.destination)}</span><span data-origin-count class="px-loc-count" aria-hidden="true"></span></h2>
 					<form data-dest-form class="px-search">
 						<label class="px-sr" for="px-dest-input">${esc(t.destPlaceholder)}</label>
 						<input id="px-dest-input" data-dest-input type="search" placeholder="${esc(t.destPlaceholder)}" autocomplete="off" enterkeyhint="search" />
@@ -44,6 +44,13 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 						<button type="button" data-route-mode="walking" aria-pressed="false">${esc(t.walking)}</button>
 					</div>
 					</div>
+                <label class="px-direction" data-direction-control hidden>
+                  <span>${esc(t.travelDirection ?? 'Travel direction')}</span>
+                  <select data-route-direction aria-label="${esc(t.travelDirection ?? 'Travel direction')}">
+                    <option value="to-places">${esc(t.toPlaces ?? 'People → places')}</option>
+                    <option value="from-places">${esc(t.fromPlaces ?? 'Places → destinations')}</option>
+                  </select>
+                </label>
 						<p data-loc-empty class="px-list-empty">${esc(t.locEmpty)}</p>
                         <p data-route-status class="px-route-status" role="status" hidden></p>
 					<ul data-loc-list class="px-list" role="listbox" aria-label="${esc(t.rankedLocations)}" hidden></ul>
@@ -60,7 +67,7 @@ export function renderProximityMarkup(labels?: Partial<UiLabels>): string {
 							<span>${esc(t.reverseDirection)}</span>
 							<span class="px-switch" aria-hidden="true"></span>
 						</button>
-						<p id="px-anim-reverse-help" class="px-sr" data-route-animation-reverse-help>When on, dashes flow from the destination toward locations. Requires Animate routes.</p>
+						<p id="px-anim-reverse-help" class="px-sr" data-route-animation-reverse-help>Reverses only the animation, not travel direction. Requires Animate routes.</p>
 						<button type="button" class="px-toggle" data-mapless-toggle role="switch" aria-checked="false" aria-describedby="px-mapless-help">
 							<span>${esc(t.mapless)}</span>
 							<span class="px-switch" aria-hidden="true"></span>

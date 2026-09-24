@@ -18,7 +18,7 @@ import sampleProximity from './sample-proximity.json';
 import sampleGroup from './sample-group.json';
 import { cartoTileUrl, resolveCartoApiKey } from './basemap';
 import { rankCandidates, type PeerLeg, type RankedCandidate } from './rank';
-import type { Place, ProximityState, DistanceMode } from './types';
+import type { Place, ProximityState, DistanceMode, RouteDirection } from './types';
 
 type RankedPlace = RankedCandidate<Place> & {
   geometry?: Array<[number, number]>;
@@ -86,7 +86,9 @@ export type ProximityHandle = {
   destroy: () => void;
   getState: () => ProximityState;
   setState: (
-    next: Partial<ProximityState> | (Partial<ProximityFile> & { distanceMode?: DistanceMode }),
+    next:
+      | Partial<ProximityState>
+      | (Partial<ProximityFile> & { distanceMode?: DistanceMode; routeDirection?: RouteDirection }),
   ) => void;
   onChange: (listener: (state: ProximityState) => void) => () => void;
 };
@@ -103,6 +105,7 @@ export function startProximity(
   const destTools = qs(root, '[data-dest-tools]');
   const destCurrent = qs(root, '[data-dest-current]');
   const originEmpty = qs(root, '[data-origin-empty]');
+  const originEmptyHelp = originEmpty.textContent;
   const originCount = qs(root, '[data-origin-count]');
   const locForm = qs<HTMLFormElement>(root, '[data-loc-form]');
   const locInput = qs<HTMLInputElement>(root, '[data-loc-input]');
@@ -126,6 +129,9 @@ export function startProximity(
   const routeModeButtons = Array.from(
     root.querySelectorAll<HTMLButtonElement>('[data-route-mode]'),
   );
+  const directionSelect = qs<HTMLSelectElement>(root, '[data-route-direction]');
+  const directionControl = qs(root, '[data-direction-control]');
+  const originLabel = qs(root, '[data-origin-label]');
   const routeAnimationToggle = qs<HTMLButtonElement>(root, '[data-route-animation]');
   const routeAnimationHelp = qs(root, '[data-route-animation-help]');
   const routeAnimationReverseToggle = qs<HTMLButtonElement>(root, '[data-route-animation-reverse]');
@@ -148,6 +154,7 @@ export function startProximity(
     origins: [],
     locations: [],
     distanceMode: 'straight',
+    routeDirection: 'to-places',
   };
 
   function syncDestination() {
@@ -166,7 +173,7 @@ export function startProximity(
     peopleSection.classList.toggle('is-collapsed', peopleCollapsed);
     peopleToggle.setAttribute('aria-expanded', String(!peopleCollapsed));
     qs(root, '[data-people-summary]').textContent =
-      `${state.origins.length} ${state.origins.length === 1 ? peopleToggle.dataset.person : peopleToggle.dataset.people}`;
+      `${state.origins.length} ${state.routeDirection === 'from-places' ? (state.origins.length === 1 ? 'destination' : 'destinations') : state.origins.length === 1 ? peopleToggle.dataset.person : peopleToggle.dataset.people}`;
     qs(root, '[data-people-action]').textContent =
       (peopleCollapsed ? peopleToggle.dataset.edit : peopleToggle.dataset.done) ?? '';
     syncPanelExpansion();
@@ -432,11 +439,19 @@ export function startProximity(
       return rankedLocations();
     }
     const mode = state.distanceMode === 'driving' ? 'driving' : 'walking';
-    const matrix = await withNetworkMatrix(state.origins, state.locations, mode, signal);
+    const reverse = state.routeDirection === 'from-places';
+    const matrix = await withNetworkMatrix(
+      reverse ? state.locations : state.origins,
+      reverse ? state.origins : state.locations,
+      mode,
+      signal,
+    );
     const legs = new Map<string, PeerLeg>();
     for (const [key, result] of matrix) {
-      const originId = key.slice(0, key.indexOf('|'));
-      legs.set(key, {
+      const [fromId, toId] = key.split('|');
+      const originId = (reverse ? toId : fromId)!;
+      const placeId = (reverse ? fromId : toId)!;
+      legs.set(`${originId}|${placeId}`, {
         originId,
         km: result.km,
         durationSec: result.durationSec,
@@ -519,22 +534,22 @@ export function startProximity(
         routeAnimationReverseToggle,
         true,
         routeAnimationReverseHelp,
-        'Turn on Animate routes to reverse direction. Available for driving and walking routes.',
+        'Turn on Animate routes to reverse the animation. Available for driving and walking routes.',
       );
     } else {
       setSwitchUnavailable(
         routeAnimationToggle,
         false,
         routeAnimationHelp,
-        'Flows dashes along routes from people toward the selected place.',
+        'Flows dashes along the selected travel direction.',
       );
       setSwitchUnavailable(
         routeAnimationReverseToggle,
         !animateOn,
         routeAnimationReverseHelp,
         animateOn
-          ? 'Flows dashes from the selected place toward people.'
-          : 'Turn on Animate routes to reverse direction.',
+          ? 'Reverses only the animation, not travel direction.'
+          : 'Turn on Animate routes to reverse the animation.',
       );
     }
     host.classList.toggle('px-animate-routes', animating);
@@ -578,7 +593,12 @@ export function startProximity(
       if (pending.length === 0) return;
       await Promise.all(
         pending.map(async (place) => {
-          const route = await getNetworkDistance(dest, place, mode, signal);
+          const route = await getNetworkDistance(
+            state.routeDirection === 'from-places' ? place : dest,
+            state.routeDirection === 'from-places' ? dest : place,
+            mode,
+            signal,
+          );
           if (signal.aborted || !route.geometry) return;
           place.geometry = route.geometry;
           const peer = place.peers[0];
@@ -597,7 +617,12 @@ export function startProximity(
         if (peer.geometry || peer.error) return;
         const origin = state.origins.find((item) => item.id === peer.originId);
         if (!origin) return;
-        const route = await getNetworkDistance(origin, selected, mode, signal);
+        const route = await getNetworkDistance(
+          state.routeDirection === 'from-places' ? selected : origin,
+          state.routeDirection === 'from-places' ? origin : selected,
+          mode,
+          signal,
+        );
         if (signal.aborted || !route.geometry) return;
         peer.geometry = route.geometry;
         redraw();
@@ -741,6 +766,16 @@ export function startProximity(
         btn.dataset.routeMode === state.distanceMode ? 'true' : 'false',
       );
     }
+    originEmpty.textContent =
+      state.routeDirection === 'from-places'
+        ? 'Add your destination, then add the places you could travel from.'
+        : originEmptyHelp;
+    directionSelect.value = state.routeDirection ?? 'to-places';
+    directionControl.hidden = state.distanceMode === 'straight';
+    originLabel.textContent =
+      (state.routeDirection === 'from-places'
+        ? originLabel.dataset.reverseLabel
+        : originLabel.dataset.forwardLabel) ?? '';
     applyRouteAnimation();
     const walking = state.distanceMode === 'walking';
     if (walking !== walkingAttributionShown) {
@@ -797,7 +832,7 @@ export function startProximity(
         originEl.setAttribute('role', 'img');
         originEl.setAttribute(
           'aria-label',
-          `Starting point${group ? ` ${personLabel(originIndex)}` : ''}, ${origin.name}`,
+          `${state.routeDirection === 'from-places' ? 'Destination' : 'Starting point'}${group ? ` ${personLabel(originIndex)}` : ''}, ${origin.name}`,
         );
       }
       originMarker.bindTooltip(popupContent(origin.name), {
@@ -914,7 +949,9 @@ export function startProximity(
       ) {
         const latlngs: L.LatLngExpression[] = geometry
           ? geometry.map(([lon, lat]) => [lat, lon])
-          : geodesicLatLngs(from, to);
+          : state.routeDirection === 'from-places'
+            ? geodesicLatLngs(to, from)
+            : geodesicLatLngs(from, to);
         const dashArray = geometry ? undefined : '6 6';
         const dimmed = hasSelection && !selected;
         const routedClass = geometry ? ' px-edge-routed' : '';
@@ -1142,7 +1179,7 @@ export function startProximity(
     }
     writeStoredState(state);
 
-    const orderKey = `${state.distanceMode}:${ranked.map((place) => place.id).join(',')}`;
+    const orderKey = `${state.distanceMode}:${state.routeDirection}:${ranked.map((place) => place.id).join(',')}`;
     if (
       lastRankAnnouncement &&
       orderKey !== lastRankAnnouncement &&
@@ -1156,7 +1193,9 @@ export function startProximity(
       const by = isGroup()
         ? byTime()
           ? 'longest trip'
-          : 'farthest person'
+          : state.routeDirection === 'from-places'
+            ? 'farthest destination'
+            : 'farthest person'
         : state.distanceMode === 'straight'
           ? 'distance'
           : 'time';
@@ -1191,6 +1230,7 @@ export function startProximity(
       origins,
       locations: state.locations.map((item) => ({ ...item })),
       distanceMode: state.distanceMode,
+      routeDirection: state.routeDirection,
     };
   }
 
@@ -1421,7 +1461,10 @@ export function startProximity(
       showStatus(result.error);
       return;
     }
-    if (announce) state.distanceMode = 'straight';
+    if (announce) {
+      state.distanceMode = 'straight';
+      state.routeDirection = 'to-places';
+    }
     applyFile(result.data);
     if (!announce) return;
     const originCountLoaded = result.data.origins?.length ?? (result.data.destination ? 1 : 0);
@@ -1558,6 +1601,15 @@ export function startProximity(
     { signal: session.signal },
   );
 
+  directionSelect.addEventListener(
+    'change',
+    () => {
+      state.routeDirection = directionSelect.value === 'from-places' ? 'from-places' : 'to-places';
+      render();
+    },
+    { signal: session.signal },
+  );
+
   for (const btn of routeModeButtons) {
     btn.addEventListener(
       'click',
@@ -1678,12 +1730,14 @@ export function startProximity(
     options.share && /^#(?:px2|px|proximity)=/.test(shareHash) && shared === null;
   const stored = shared ? null : readStoredState();
   if (shared) {
+    state.routeDirection = shared.routeDirection ?? 'to-places';
     if (shared.distanceMode) state.distanceMode = shared.distanceMode;
     applyFile(shared);
     const count =
       shared.locations.length + (shared.origins?.length ?? (shared.destination ? 1 : 0));
     showStatus(`Loaded from shared link · ${count} nodes.`);
   } else if (stored) {
+    state.routeDirection = stored.routeDirection ?? 'to-places';
     if (stored.distanceMode) state.distanceMode = stored.distanceMode;
     applyFile(stored);
     showStatus('Restored your previous comparison.');
@@ -1696,7 +1750,9 @@ export function startProximity(
   window.setTimeout(() => map.invalidateSize(), 0);
 
   function setState(
-    next: Partial<ProximityState> | (Partial<ProximityFile> & { distanceMode?: DistanceMode }),
+    next:
+      | Partial<ProximityState>
+      | (Partial<ProximityFile> & { distanceMode?: DistanceMode; routeDirection?: RouteDirection }),
   ) {
     if ('origins' in next && next.origins) {
       state.origins = next.origins.map((node) => ({
@@ -1726,6 +1782,9 @@ export function startProximity(
         lat: node.lat,
         lon: node.lon,
       }));
+    }
+    if ('routeDirection' in next && next.routeDirection) {
+      state.routeDirection = next.routeDirection;
     }
     if ('distanceMode' in next && next.distanceMode) {
       state.distanceMode = next.distanceMode;

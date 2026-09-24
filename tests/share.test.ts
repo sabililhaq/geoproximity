@@ -133,3 +133,20 @@ describe('stored state', () => {
     });
   });
 });
+
+describe('travel direction', () => {
+  it('round-trips reversed solo and group links while keeping old defaults', () => {
+    for (const origins of [[destination], [destination, { ...destination, id: 'other', lon: 3 }]]) {
+      const hash = encodeShareHash({
+        ...state,
+        origins,
+        routeDirection: 'from-places',
+        distanceMode: 'driving',
+      });
+      expect(readShareHash(`#${hash}`)?.routeDirection).toBe('from-places');
+      expect(readShareHash(`#${hash}`)?.distanceMode).toBe('driving');
+    }
+    expect(readShareHash(`#${encodeShareHash(state)}`)?.routeDirection).toBeUndefined();
+    expect(readShareHash(`#${encodeShareHash(state)}|unknown`)?.routeDirection).toBeUndefined();
+  });
+});

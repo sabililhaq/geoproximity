@@ -34,9 +34,13 @@ export function bindSearch(
         retry.className = 'px-retry';
         retry.textContent = 'Retry search';
         retry.addEventListener('click', () => void run());
-        empty.append(retry);
+        empty.append(
+          retry,
+          '. You can also paste latitude, longitude or click the map to place a pin.',
+        );
       } else {
-        empty.textContent = 'No results';
+        empty.textContent =
+          'No results. Try adding the city, paste latitude, longitude, or click the map to place a pin.';
       }
       results.append(empty);
       results.hidden = false;
@@ -185,6 +189,16 @@ export function bindSearch(
     }
 
     searchAbort?.abort();
+    if (/^https?:\/\//i.test(query)) {
+      results.replaceChildren();
+      const help = document.createElement('div');
+      help.className = 'px-empty';
+      help.textContent =
+        'This link does not contain usable coordinates. Open the place in Google Maps, copy its latitude and longitude, and paste them here. Or click the map to place a pin.';
+      results.append(help);
+      results.hidden = false;
+      return;
+    }
     searchAbort = new AbortController();
     results.hidden = false;
     results.textContent = 'Searching…';
@@ -267,6 +281,10 @@ export function bindSearch(
           input: line,
           options: [{ name: formatted, shortName: formatted, lat: coords.lat, lon: coords.lon }],
         });
+        continue;
+      }
+      if (/^https?:\/\//i.test(line)) {
+        resolutions.push({ input: line, options: [] });
         continue;
       }
       const result = await searchPlaces(line, {

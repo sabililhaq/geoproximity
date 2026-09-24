@@ -6,6 +6,10 @@ export type UiLabels = {
   expandMap: string;
   showPlaces: string;
   distanceMethod: string;
+  travelDirection?: string;
+  toPlaces?: string;
+  fromPlaces?: string;
+  destinationPoints?: string;
   straightLine: string;
   driving: string;
   walking: string;
@@ -56,6 +60,10 @@ export const defaultLabels: UiLabels = {
   expandMap: 'Expand map',
   showPlaces: 'Show places',
   distanceMethod: 'Distance method',
+  travelDirection: 'Travel direction',
+  toPlaces: 'People → places',
+  fromPlaces: 'Places → destinations',
+  destinationPoints: 'Where we’re going',
   straightLine: 'Straight line',
   driving: 'Driving',
   walking: 'Walking',
@@ -64,7 +72,7 @@ export const defaultLabels: UiLabels = {
   distance: 'Distance',
   advanced: 'Advanced settings',
   animateRoutes: 'Animate routes',
-  reverseDirection: 'Reverse direction',
+  reverseDirection: 'Reverse animation',
   mapless: 'List only',
   maplessHelp: 'Hide the map and show the ranked comparison list.',
   showScale: 'Show scale ruler',

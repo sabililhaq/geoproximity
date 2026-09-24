@@ -1,6 +1,6 @@
 import { parseProximityJson } from './io';
 import type { ProximityNode } from './io';
-import type { DistanceMode, ProximityState } from './types';
+import type { DistanceMode, ProximityState, RouteDirection } from './types';
 
 const DISTANCE_MODES: readonly DistanceMode[] = ['straight', 'driving', 'walking'];
 
@@ -14,6 +14,7 @@ export type SharedComparison = {
   locations: ProximityNode[];
   /** Absent in links created before distance modes were shared. */
   distanceMode?: DistanceMode;
+  routeDirection?: RouteDirection;
 };
 
 function compactNum(n: number): string {
@@ -57,11 +58,12 @@ export function encodeShareHash(state: ProximityState): string {
   const origins = stateOrigins(state);
   const locs = state.locations.map(encodeNode).join(';');
   const mode = MODE_SHORT[state.distanceMode];
+  const direction = state.routeDirection === 'from-places' ? '|r' : '';
   if (origins.length <= 1) {
     const dest = origins[0] ? encodeNode(origins[0]) : '';
-    return `px=${dest}|${locs}|${mode}`;
+    return `px=${dest}|${locs}|${mode}${direction}`;
   }
-  return `px2=${origins.map(encodeNode).join(';')}|${locs}|${mode}`;
+  return `px2=${origins.map(encodeNode).join(';')}|${locs}|${mode}${direction}`;
 }
 
 function readCompactHash(hash: string): SharedComparison | null {
@@ -93,6 +95,7 @@ function readCompactHash(hash: string): SharedComparison | null {
     destination,
     locations,
     distanceMode: distanceMode ?? 'straight',
+    ...(parts[3] === 'r' ? { routeDirection: 'from-places' as const } : {}),
   };
 }
 
@@ -132,6 +135,7 @@ function readMultiHash(hash: string): SharedComparison | null {
     origins,
     locations,
     distanceMode: distanceMode ?? 'straight',
+    ...(parts[3] === 'r' ? { routeDirection: 'from-places' as const } : {}),
   };
 }
 
